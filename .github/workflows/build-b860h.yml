@@ -387,62 +387,53 @@ jobs:
           grep "^CONFIG_TARGET" .config
           grep "^CONFIG_PACKAGE_luci-theme" .config || true
 
-- name: 🔧 Fix Kernel Config Conflicts
-  run: |
-    echo "=== Patching OpenWrt kernel config files ==="
+      # ── FIX: Precise kernel config conflict resolution ─────────────
+      # Confirmed root cause (verified by grepping actual repo files):
+      #
+      #   target/linux/generic/config-6.6:376  → # CONFIG_ARM64_VA_BITS_48 is not set
+      #   target/linux/generic/config-6.6:4330 → # CONFIG_NO_HZ_IDLE is not set
+      #
+      #   target/linux/armsr/armv8/config-6.6:104 → CONFIG_ARM64_VA_BITS_48=y
+      #   target/linux/armsr/armv8/config-6.6:403 → CONFIG_IOMMU_DEFAULT_PASSTHROUGH=y
+      #   target/linux/armsr/armv8/config-6.6:478 → CONFIG_NO_HZ_IDLE=y
+      #
+      # When kconfig.pl merges generic + armsr + armv8 configs, the same
+      # option appears as "disabled" in generic and "enabled" in armv8.
+      # Kconfig treats this as a 'choice' conflict → syncconfig enters
+      # interactive mode → build hangs waiting for user input.
+      #
+      # Fix: remove ONLY the conflicting "disabled" lines from generic.
+      # The armsr/armv8 values are correct for this ARM64 platform — leave them.
+      - name: 🔧 Fix Kernel Config Conflicts
+        run: |
+          GENERIC_CFG="target/linux/generic/config-6.6"
 
-    # These options exist in OpenWrt's internal target config files
-    # and conflict with Kconfig 'choice' blocks in kernel 6.6.103.
-    # They must be removed from ALL config files that feed into
-    # the kernel .config merger (kconfig.pl), not just root .config.
+          echo "=== Patching: $GENERIC_CFG ==="
+          echo "Before patch:"
+          grep -nE "ARM64_VA_BITS_48|NO_HZ_IDLE" "$GENERIC_CFG" || echo "  (not found)"
 
-    CONFLICT_OPTS=(
-      "CONFIG_ARM64_VA_BITS_48"
-      "CONFIG_IOMMU_DEFAULT_PASSTHROUGH"
-      "CONFIG_NO_HZ_IDLE"
-    )
+          # Remove ONLY the "disabled" entries from generic config.
+          # These conflict with the "enabled" entries in armsr/armv8/config-6.6.
+          # IOMMU_DEFAULT_PASSTHROUGH is NOT in generic — no action needed for it.
+          sed -i "/^# CONFIG_ARM64_VA_BITS_48 is not set/d" "$GENERIC_CFG"
+          sed -i "/^# CONFIG_NO_HZ_IDLE is not set/d"       "$GENERIC_CFG"
 
-    # Patch all kernel config files in the target directory
-    CONFIG_FILES=(
-      "target/linux/generic/config-6.6"
-      "target/linux/armsr/config-6.6"
-      "target/linux/armsr/armv8/config-6.6"
-    )
+          echo ""
+          echo "After patch:"
+          grep -nE "ARM64_VA_BITS_48|NO_HZ_IDLE" "$GENERIC_CFG" \
+            && echo "⚠️  Entries still present — check manually" \
+            || echo "✅ Conflicts cleared from generic/config-6.6"
 
-    for cfg in "${CONFIG_FILES[@]}"; do
-      if [ -f "$cfg" ]; then
-        echo "  Patching: $cfg"
-        for opt in "${CONFLICT_OPTS[@]}"; do
-          sed -i "/^${opt}=/d" "$cfg"
-          sed -i "/^# ${opt} is not set/d" "$cfg"
-          sed -i "/^# ${opt} /d" "$cfg"
-        done
-        echo "  ✅ Done: $cfg"
-      else
-        echo "  ⚠️  Not found (skip): $cfg"
-      fi
-    done
+          echo ""
+          echo "armsr/armv8/config-6.6 (unchanged — these values are correct):"
+          grep -nE "ARM64_VA_BITS_48|IOMMU_DEFAULT_PASSTHROUGH|NO_HZ_IDLE" \
+            target/linux/armsr/armv8/config-6.6 || echo "  (not found)"
 
-    # Also patch root .config just in case
-    for opt in "${CONFLICT_OPTS[@]}"; do
-      sed -i "/^${opt}=/d" .config 2>/dev/null || true
-      sed -i "/^# ${opt} is not set/d" .config 2>/dev/null || true
-      sed -i "/^# ${opt} /d" .config 2>/dev/null || true
-    done
-
-    # Re-run defconfig after patching
-    make defconfig
-
-    echo ""
-    echo "=== Verifying conflicts are cleared ==="
-    grep -rE "ARM64_VA_BITS_48|IOMMU_DEFAULT_PASSTHROUGH|NO_HZ_IDLE" \
-      target/linux/generic/config-6.6 \
-      target/linux/armsr/config-6.6 \
-      target/linux/armsr/armv8/config-6.6 \
-      .config 2>/dev/null \
-      && echo "⚠️  Some options still present (may be OK if resolved by defconfig)" \
-      || echo "✅ All conflicting options cleared"
+          echo ""
+          make defconfig
+          echo "✅ defconfig re-applied successfully"
       # ───────────────────────────────────────────────────────────────
+
 
       - name: 📁 Copy Custom Files
         run: |
