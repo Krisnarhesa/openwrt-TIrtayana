@@ -13,7 +13,7 @@
 
 set -euo pipefail
 
-# ── Warna terminal ──────────────────────────────────────────
+# ── Terminal colors ──────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -22,11 +22,11 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-# ── Konfigurasi default ─────────────────────────────────────
+# ── Default configuration ─────────────────────────────────────
 BOARD="s905x"                          # Chip B860H = Amlogic S905X
-KERNEL_VERSION="6.1.y_6.6.y"          # Dua seri kernel sekaligus
-OPENWRT_IP="192.168.1.1"              # IP default router
-ROOTFS_SIZE="256/1024"                 # BOOTFS/ROOTFS dalam MB
+KERNEL_VERSION="6.1.y_6.6.y"          # Multiple kernel series
+OPENWRT_IP="192.168.1.1"              # Default router IP
+ROOTFS_SIZE="256/1024"                 # BOOTFS/ROOTFS in MB
 BUILDER_NAME="TIrtayana"
 OPHUB_REPO="https://github.com/ophub/amlogic-s9xxx-openwrt.git"
 OPHUB_DIR="/tmp/ophub-packager"
@@ -34,6 +34,7 @@ ROOTFS_PATTERN="bin/targets/armsr/armv8/*rootfs.tar.gz"
 OUTPUT_DIR="out/b860h"
 KERNEL_REPO=""
 PROFILE=""
+COMPILE_FIRST="false"
 
 # ── Helper functions ────────────────────────────────────────
 info()    { echo -e "${CYAN}[INFO]${NC} $*"; }
@@ -56,35 +57,35 @@ print_banner() {
     ╚═╝   ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝
 EOF
     echo -e "${NC}"
-    echo -e "  ${BOLD}OpenWrt Packaging Script untuk STB B860H (Amlogic S905X)${NC}"
+    echo -e "  ${BOLD}OpenWrt Packaging Script for STB B860H (Amlogic S905X)${NC}"
     echo -e "  ${YELLOW}Powered by ophub/amlogic-s9xxx-openwrt${NC}"
     echo ""
 }
 
-# ── Parsing argumen ─────────────────────────────────────────
+# ── Argument parsing ─────────────────────────────────────────
 usage() {
-    echo -e "Usage: ${BOLD}$0 [opsi]${NC}"
+    echo -e "Usage: ${BOLD}$0 [options]${NC}"
     echo ""
-    echo "  -k  Versi kernel   (default: ${KERNEL_VERSION})"
-    echo "      Contoh: -k 6.6.y  atau  -k 6.1.y_6.6.y"
-    echo "  -i  IP Address     (default: ${OPENWRT_IP})"
-    echo "  -s  Ukuran rootfs  (default: ${ROOTFS_SIZE} = BOOT/ROOT dalam MB)"
-    echo "  -b  Board target   (default: ${BOARD})"
-    echo "  -n  Nama builder   (default: ${BUILDER_NAME})"
-    echo "  -o  Output dir     (default: ${OUTPUT_DIR})"
-    echo "  -r  Custom Ophub   (default: ${OPHUB_REPO})"
-    echo "  -R  Custom Kernel  (default: opsional)"
-    echo "  -p  Profile build  (default: opsional)"
-    echo "  -c  Kompilasi Ulang OpenWrt dari awal sebelum packaging"
-    echo "  -h  Tampilkan bantuan ini"
+    echo "  -k  Kernel version   (default: ${KERNEL_VERSION})"
+    echo "      Example: -k 6.6.y  or  -k 6.1.y_6.6.y"
+    echo "  -i  IP Address       (default: ${OPENWRT_IP})"
+    echo "  -s  Rootfs size      (default: ${ROOTFS_SIZE} = BOOT/ROOT in MB)"
+    echo "  -b  Target board     (default: ${BOARD})"
+    echo "  -n  Builder name     (default: ${BUILDER_NAME})"
+    echo "  -o  Output dir       (default: ${OUTPUT_DIR})"
+    echo "  -r  Custom Ophub     (default: ${OPHUB_REPO})"
+    echo "  -R  Custom Kernel    (default: optional)"
+    echo "  -p  Build profile    (default: optional)"
+    echo "  -c  Recompile OpenWrt from scratch before packaging"
+    echo "  -h  Display this help message"
     echo ""
-    echo "Contoh:"
+    echo "Examples:"
     echo "  sudo $0 -c -k 6.6.y"
     echo "  sudo $0 -k 6.1.y -i 10.0.0.1"
     exit 0
 }
 
-while getopts "k:i:s:b:n:o:r:R:p:h" opt; do
+while getopts "k:i:s:b:n:o:r:R:p:hc" opt; do
     case "$opt" in
         k) KERNEL_VERSION="$OPTARG" ;;
         i) OPENWRT_IP="$OPTARG" ;;
@@ -101,83 +102,83 @@ while getopts "k:i:s:b:n:o:r:R:p:h" opt; do
     esac
 done
 
-# ── Cek root ─────────────────────────────────────────────────
+# ── Root check check ─────────────────────────────────────────
 check_root() {
     if [ "$(id -u)" -ne 0 ]; then
-        error "Script ini harus dijalankan sebagai root.\n  Gunakan: sudo $0 $*"
+        error "This script must be run as root.\n  Use: sudo $0 $*"
     fi
 }
 
-# ── Compile Ulang (Opsional) ──────────────────────────────────
+# ── Optional Recompile ────────────────────────────────────────
 rebuild_openwrt() {
     if [ "${COMPILE_FIRST}" == "true" ]; then
-        header "Membangun Ulang OpenWrt dari Awal"
-        info "Menjalankan make clean && make -j\$(nproc)..."
+        header "Rebuilding OpenWrt from Scratch"
+        info "Running make defconfig && make -j\$(nproc)..."
         
-        # Eksekusi kompilasi dengan memanggil Makefile OpenWrt di Current Dir
+        # Execute compilation in the current directory
         make defconfig || true
-        make -j$(nproc) || make -j1 V=s || error "Kompilasi OpenWrt Gagal!"
+        make -j$(nproc) || make -j1 V=s || error "OpenWrt compilation failed!"
         
-        success "Kompilasi OpenWrt Selesai!"
+        success "OpenWrt compilation finished!"
     fi
 }
 
-# ── Cek dependency ────────────────────────────────────────────
+# ── Check dependencies ────────────────────────────────────────
 check_deps() {
-    header "Memeriksa Dependencies"
+    header "Checking Dependencies"
     local deps=(git curl wget tar gzip)
     local missing=()
 
     for dep in "${deps[@]}"; do
         if command -v "$dep" &>/dev/null; then
-            success "$dep tersedia"
+            success "$dep is available"
         else
             missing+=("$dep")
-            warn "$dep tidak ditemukan"
+            warn "$dep is missing"
         fi
     done
 
     if [ ${#missing[@]} -gt 0 ]; then
-        info "Menginstall dependency yang kurang: ${missing[*]}"
+        info "Installing missing dependencies: ${missing[*]}"
         apt-get update -y -qq
         apt-get install -y -qq "${missing[@]}"
-        success "Dependencies berhasil diinstall"
+        success "Dependencies installed successfully"
     fi
 }
 
-# ── Cari rootfs file ──────────────────────────────────────────
+# ── Find rootfs file ──────────────────────────────────────────
 find_rootfs() {
-    header "Mencari File rootfs.tar.gz"
+    header "Searching for rootfs.tar.gz file"
 
-    # Cari di direktori build output
+    # Search in build output directory
     ROOTFS_FILE=$(ls ${ROOTFS_PATTERN} 2>/dev/null | tail -1)
 
 
     if [ -z "${ROOTFS_FILE}" ]; then
         echo ""
-        warn "File rootfs tidak ditemukan di: ${ROOTFS_PATTERN}"
+        warn "Rootfs file not found at: ${ROOTFS_PATTERN}"
         echo ""
-        echo -e "  ${YELLOW}Pastikan kamu sudah build OpenWrt terlebih dahulu:${NC}"
+        echo -e "  ${YELLOW}Make sure to build OpenWrt first:${NC}"
         echo -e "  ${BOLD}  make -j\$(nproc) || make -j1 V=s${NC}"
         echo ""
-        echo -e "  ${YELLOW}File yang dibutuhkan:${NC}"
+        echo -e "  ${YELLOW}Required file:${NC}"
         echo -e "  ${BOLD}  bin/targets/armsr/armv8/*-rootfs.tar.gz${NC}"
         echo ""
-        error "Build OpenWrt terlebih dahulu, lalu jalankan script ini kembali."
+        error "Build OpenWrt first, then run this script again."
     fi
 
-    success "Ditemukan: ${ROOTFS_FILE}"
-    info "Ukuran: $(du -sh "${ROOTFS_FILE}" | cut -f1)"
+    success "Found: ${ROOTFS_FILE}"
+    info "Size: $(du -sh "${ROOTFS_FILE}" | cut -f1)"
 }
 
-# ── Clone atau update ophub ───────────────────────────────────
+# ── Clone or update ophub ─────────────────────────────────────
 setup_ophub() {
-    header "Menyiapkan ophub Packager"
+    header "Preparing Ophub Packager"
 
     if [ -d "${OPHUB_DIR}" ]; then
-        info "Direktori ophub sudah ada, melakukan update..."
+        info "Ophub directory exists, updating..."
         git -C "${OPHUB_DIR}" pull --ff-only origin main || {
-            warn "Git pull gagal, menghapus dan clone ulang..."
+            warn "Git pull failed, removing and cloning again..."
             rm -rf "${OPHUB_DIR}"
         }
     fi
@@ -187,37 +188,37 @@ setup_ophub() {
         git clone --depth=1 "${OPHUB_REPO}" "${OPHUB_DIR}"
     fi
 
-    success "ophub packager siap di: ${OPHUB_DIR}"
+    success "Ophub packager is ready at: ${OPHUB_DIR}"
 }
 
-# ── Siapkan direktori kerja ───────────────────────────────────
+# ── Prepare workspace ─────────────────────────────────────────
 prepare_workspace() {
-    header "Menyiapkan Workspace"
+    header "Preparing Workspace"
 
-    # Buat folder openwrt-armsr yang dibutuhkan ophub
+    # Create openwrt-armsr folder required by ophub
     local armsr_dir="${OPHUB_DIR}/openwrt-armsr"
     rm -rf "${armsr_dir}"
     mkdir -p "${armsr_dir}"
 
-    # Salin rootfs ke sana
-    info "Menyalin rootfs ke workspace ophub..."
+    # Copy rootfs there
+    info "Copying rootfs to ophub workspace..."
     cp "${ROOTFS_FILE}" "${armsr_dir}/"
-    success "rootfs disalin ke: ${armsr_dir}/"
+    success "Rootfs copied to: ${armsr_dir}/"
 
-    # Buat output dir lokal
+    # Create local output dir
     mkdir -p "${OUTPUT_DIR}"
 }
 
-# ── Jalankan proses packaging ─────────────────────────────────
+# ── Execute packaging ─────────────────────────────────────────
 run_packaging() {
-    header "Packaging Firmware untuk B860H"
+    header "Packaging Firmware for B860H"
 
     echo ""
-    echo -e "  ${BOLD}Konfigurasi packaging:${NC}"
+    echo -e "  ${BOLD}Packaging configuration:${NC}"
     echo -e "  ├─ Board        : ${CYAN}${BOARD}${NC} (Amlogic S905X = B860H)"
     echo -e "  ├─ Kernel       : ${CYAN}${KERNEL_VERSION}${NC}"
-    echo -e "  ├─ IP Default   : ${CYAN}${OPENWRT_IP}${NC}"
-    echo -e "  ├─ Partisi      : ${CYAN}${ROOTFS_SIZE}${NC} MB (BOOT/ROOT)"
+    echo -e "  ├─ Default IP   : ${CYAN}${OPENWRT_IP}${NC}"
+    echo -e "  ├─ Partitions   : ${CYAN}${ROOTFS_SIZE}${NC} MB (BOOT/ROOT)"
     echo -e "  ├─ Builder      : ${CYAN}${BUILDER_NAME}${NC}"
     if [ -n "${PROFILE}" ]; then
         echo -e "  ├─ Profile      : ${CYAN}${PROFILE}${NC}"
@@ -239,7 +240,7 @@ run_packaging() {
         export CUSTOM_KERNEL_REPO="${KERNEL_REPO}"
     fi
 
-    # Jalankan script remake ophub
+    # Run ophub remake script
     sudo -E ./remake \
         -b "${BOARD}" \
         -k "${KERNEL_VERSION}" \
@@ -249,55 +250,55 @@ run_packaging() {
         -a true
 
     cd - > /dev/null
-    success "Packaging selesai!"
+    success "Packaging process completed!"
 }
 
-# ── Salin hasil ke output dir ─────────────────────────────────
+# ── Copy results to output dir ────────────────────────────────
 collect_output() {
-    header "Mengumpulkan Hasil Firmware"
+    header "Collecting Firmware Results"
 
     local ophub_out="${OPHUB_DIR}/openwrt/out"
 
     if [ ! -d "${ophub_out}" ] || [ -z "$(ls -A "${ophub_out}" 2>/dev/null)" ]; then
-        error "Tidak ada output di: ${ophub_out}"
+        error "No output found in: ${ophub_out}"
     fi
 
     cp -v "${ophub_out}"/*.img.gz "${OUTPUT_DIR}/" 2>/dev/null || true
     cp -v "${ophub_out}"/*.img    "${OUTPUT_DIR}/" 2>/dev/null || true
 
     echo ""
-    success "Firmware tersedia di: ${OUTPUT_DIR}/"
+    success "Firmware is available in: ${OUTPUT_DIR}/"
     echo ""
-    echo -e "  ${BOLD}File hasil:${NC}"
+    echo -e "  ${BOLD}Generated files:${NC}"
     ls -lh "${OUTPUT_DIR}/" | grep -v "^total" | while read -r line; do
         echo -e "  ${GREEN}✔${NC} $line"
     done
 }
 
-# ── Instruksi install ─────────────────────────────────────────
+# ── Installation instructions ─────────────────────────────────
 print_install_guide() {
-    header "Cara Install ke STB B860H"
+    header "Installation Guide for STB B860H"
 
-    echo -e "  ${BOLD}1. Flash ke USB/SD Card${NC}"
-    echo -e "     Gunakan ${YELLOW}Rufus${NC} atau ${YELLOW}balenaEtcher${NC}:"
+    echo -e "  ${BOLD}1. Flash to USB/SD Card${NC}"
+    echo -e "     Use ${YELLOW}Rufus${NC} or ${YELLOW}balenaEtcher${NC}:"
     echo -e "     File: ${CYAN}${OUTPUT_DIR}/*.img.gz${NC}"
     echo ""
-    echo -e "  ${BOLD}2. Boot dari USB/SD${NC}"
-    echo -e "     Colok ke STB B860H, nyalakan → boot otomatis"
+    echo -e "  ${BOLD}2. Boot from USB/SD${NC}"
+    echo -e "     Plug into STB B860H, turn on → automatic boot"
     echo ""
-    echo -e "  ${BOLD}3. Akses LuCI${NC}"
-    echo -e "     Buka browser → ${CYAN}http://${OPENWRT_IP}${NC}"
+    echo -e "  ${BOLD}3. Access LuCI${NC}"
+    echo -e "     Open browser → ${CYAN}http://${OPENWRT_IP}${NC}"
     echo -e "     User: ${YELLOW}root${NC} | Pass: ${YELLOW}TIudayana${NC}"
     echo ""
-    echo -e "  ${BOLD}4. Install ke eMMC (opsional)${NC}"
+    echo -e "  ${BOLD}4. Install to eMMC (Optional)${NC}"
     echo -e "     System → ${YELLOW}Amlogic Service${NC} → ${YELLOW}Install OpenWrt${NC}"
-    echo -e "     Pilih board: ${CYAN}B860H${NC} → klik Install"
+    echo -e "     Select board: ${CYAN}B860H${NC} → click Install"
     echo ""
-    echo -e "  ${BOLD}5. Backup ROM Android (sebelum install ke eMMC)${NC}"
-    echo -e "     Buka terminal: ${YELLOW}openwrt-ddbr${NC} → ketik ${YELLOW}b${NC} untuk backup"
+    echo -e "  ${BOLD}5. Backup Android ROM (Before installing to eMMC)${NC}"
+    echo -e "     Open terminal: ${YELLOW}openwrt-ddbr${NC} → type ${YELLOW}b${NC} to backup"
     echo ""
-    echo -e "  ${BOLD}Tema LuCI:${NC} ${CYAN}Argon (Modern Dark Theme)${NC}"
-    echo -e "  Konfigurasi tema: System → ${YELLOW}Argon Config${NC}"
+    echo -e "  ${BOLD}LuCI Theme:${NC} ${CYAN}Argon (Modern Dark Theme)${NC}"
+    echo -e "  Theme config: System → ${YELLOW}Argon Config${NC}"
     echo ""
 }
 
@@ -314,7 +315,7 @@ main() {
     collect_output
     print_install_guide
 
-    echo -e "${GREEN}${BOLD}✅  Semua selesai! Firmware B860H siap digunakan.${NC}"
+    echo -e "${GREEN}${BOLD}✅  All done! The B860H Firmware is ready to use.${NC}"
     echo ""
 }
 
