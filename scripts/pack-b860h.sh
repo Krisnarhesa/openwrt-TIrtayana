@@ -170,7 +170,9 @@ EOF
         
         # Execute compilation in the current directory as the normal user
         # We use 'sudo -u' instead of 'su' for better compatibility with sudo environments
+        # make olddefconfig ensures no interactive prompts for new symbols
         sudo -u "${orig_user}" make defconfig || true
+        sudo -u "${orig_user}" make olddefconfig || true
         sudo -u "${orig_user}" make -j$(nproc) || sudo -u "${orig_user}" make -j1 V=s || error "OpenWrt compilation failed!"
         
         success "OpenWrt compilation finished!"
