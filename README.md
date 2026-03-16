@@ -1,8 +1,7 @@
 <div align="center">
-  <img src="./.github/assets/logo-tirtayana.png" width="500" alt="TIrtayana Logo">
+  <img src="./.github/assets/logo-tirtayana.png" width="500" alt="TIrtayana Logo"><br>
 
-  # TIrtayana OpenWrt
-  **Custom Firmware for STB B860H (Amlogic S905X)**
+  <b>Custom Firmware for STB B860H (Amlogic S905X)</b>
 
   [![Build OpenWrt](https://github.com/Krisnarhesa/openwrt-TIrtayana/actions/workflows/build-b860h.yml/badge.svg)](https://github.com/Krisnarhesa/openwrt-TIrtayana/actions/workflows/build-b860h.yml)
   [![License](https://img.shields.io/badge/License-GPL%202.0-blue.svg)](https://opensource.org/licenses/GPL-2.0)
