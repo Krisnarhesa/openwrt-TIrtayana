@@ -45,7 +45,15 @@ define Package/luci-theme-argon/postrm
 exit 0
 endef
 
-include $(TOPDIR)/feeds/luci/luci.mk
+define Package/luci-theme-argon
+  SECTION:=luci
+  CATEGORY:=LuCI
+  TITLE:=Argon - Clean and Modern LuCI Theme
+  DEPENDS:=+luci-base
+  PKGARCH:=all
+endef
+
+include $(INCLUDE_DIR)/package.mk
 
 # call BuildPackage - OpenWrt buildroot signature
 $(eval $(call BuildPackage,luci-theme-argon))
