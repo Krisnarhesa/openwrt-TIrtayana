@@ -1,0 +1,14 @@
+#!/bin/sh
+# TIrtayana OpenWrt - Set Argon as default LuCI theme
+# This script runs once on first boot via /etc/uci-defaults/
+
+# Register Argon theme entry
+uci -q set luci.themes.Argon=/luci-static/argon
+
+# Set Argon as the active default theme
+uci -q set luci.main.mediaurlbase=/luci-static/argon
+
+# Commit changes
+uci commit luci
+
+exit 0

@@ -1,0 +1,5 @@
+config system
+        option hostname 'TIrtayana'
+        option timezone 'Asia/Makassar'
+        option ttylogin '0'
+        option log_size '64'

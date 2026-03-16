@@ -1,0 +1,512 @@
+/**
+ * LuCI Argon Theme - Tirtayana Custom Edition
+ * Mobile & Responsive Styles
+ * Copyright (C) 2024 Tirtayana
+ */
+
+/* Tablet and Mobile Devices */
+@media only screen and (max-width: 1024px) {
+  :root {
+    --font-size-base: 15px;
+    --spacing-sm: 12px;
+    --spacing-md: 18px;
+    --spacing-lg: 24px;
+  }
+
+  #maincontent {
+    padding: var(--spacing-md);
+  }
+
+  .cbi-value {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .cbi-value-title {
+    flex: 1;
+    width: 100%;
+    margin-bottom: var(--spacing-sm);
+    padding-right: 0;
+  }
+
+  .cbi-value-field {
+    width: 100%;
+  }
+}
+
+/* Mobile Devices */
+@media only screen and (max-width: 768px) {
+  :root {
+    --font-size-base: 14px;
+    --spacing-sm: 10px;
+    --spacing-md: 15px;
+    --spacing-lg: 20px;
+  }
+
+  body {
+    font-size: var(--font-size-base);
+  }
+
+  /* Header Adjustments */
+  #menubar {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: var(--spacing-md);
+    min-height: auto;
+  }
+
+  #menubar::before {
+    width: 40px;
+    height: 40px;
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .hostname {
+    font-size: 1.5em;
+    margin-bottom: var(--spacing-sm);
+    margin-right: 0;
+    width: 100%;
+  }
+
+  .distversion {
+    font-size: 0.85em;
+    width: 100%;
+    margin-bottom: var(--spacing-sm);
+  }
+
+  #indicators {
+    width: 100%;
+    justify-content: flex-start;
+    margin-top: var(--spacing-sm);
+  }
+
+  #indicators > * {
+    font-size: 0.8em;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    margin-right: var(--spacing-xs);
+  }
+
+  /* Navigation Menu */
+  .main-menu {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .main-menu > ul {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .main-menu > ul > li {
+    width: 100%;
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .main-menu > ul > li > a {
+    padding: var(--spacing-md);
+    border-bottom: none;
+    border-left: 3px solid transparent;
+  }
+
+  .main-menu > ul > li > a:hover,
+  .main-menu > ul > li.active > a {
+    border-bottom: none;
+    border-left-color: var(--secondary-color);
+  }
+
+  /* Dropdown Menu Mobile */
+  .main-menu li ul {
+    position: static;
+    box-shadow: none;
+    border-radius: 0;
+    background-color: var(--background-dark);
+    padding-left: var(--spacing-lg);
+  }
+
+  .main-menu li:hover > ul {
+    display: none;
+  }
+
+  .main-menu li.mobile-expanded > ul {
+    display: block;
+  }
+
+  /* Main Content */
+  #maincontent {
+    padding: var(--spacing-sm);
+  }
+
+  /* Cards and Containers */
+  .container,
+  .cbi-map {
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-md);
+  }
+
+  /* Headers */
+  h1 { font-size: 1.6em; }
+  h2 { font-size: 1.4em; }
+  h3 { font-size: 1.2em; }
+  h4 { font-size: 1.1em; }
+
+  .cbi-map h2,
+  .cbi-section h3 {
+    font-size: 1.1em;
+    padding: var(--spacing-md);
+  }
+
+  .cbi-map-descr,
+  .cbi-section-descr {
+    padding: var(--spacing-md);
+    margin: var(--spacing-sm);
+    font-size: 0.9em;
+  }
+
+  /* Form Elements */
+  .cbi-section-node {
+    padding: var(--spacing-md);
+  }
+
+  .cbi-value {
+    margin-bottom: var(--spacing-md);
+    padding: var(--spacing-sm) 0;
+  }
+
+  .cbi-value-title {
+    font-size: 0.95em;
+  }
+
+  .cbi-value-description {
+    font-size: 0.85em;
+    margin-top: var(--spacing-sm);
+  }
+
+  /* Input Fields */
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="number"],
+  select,
+  textarea {
+    padding: var(--spacing-md);
+    font-size: var(--font-size-base);
+    min-height: 44px; /* Touch-friendly size */
+  }
+
+  /* Buttons */
+  .btn,
+  .cbi-button,
+  button,
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"] {
+    padding: var(--spacing-md) var(--spacing-lg);
+    font-size: var(--font-size-base);
+    min-height: 44px;
+    min-width: 44px;
+    margin: var(--spacing-xs);
+  }
+
+  /* Button Groups */
+  .cbi-page-actions,
+  .cbi-section-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .cbi-page-actions > *,
+  .cbi-section-actions > * {
+    width: 100%;
+  }
+
+  /* Tables */
+  .table,
+  .cbi-section-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    display: block;
+  }
+
+  .table th,
+  .cbi-section-table th,
+  .table td,
+  .cbi-section-table td {
+    padding: var(--spacing-sm);
+    font-size: 0.9em;
+    white-space: nowrap;
+  }
+
+  /* Hide less important table columns on mobile */
+  .table th.hide-xs,
+  .table td.hide-xs,
+  .cbi-section-table th.hide-xs,
+  .cbi-section-table td.hide-xs {
+    display: none;
+  }
+
+  /* Tabs */
+  .cbi-tabmenu {
+    flex-wrap: wrap;
+    margin: 0 var(--spacing-sm);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .cbi-tabmenu li {
+    margin-right: 0;
+    margin-bottom: var(--spacing-xs);
+  }
+
+  .cbi-tabmenu li a {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 0.9em;
+    white-space: nowrap;
+  }
+
+  /* Alerts */
+  .alert,
+  .error,
+  .warning,
+  .notice {
+    padding: var(--spacing-md);
+    margin: var(--spacing-sm);
+    font-size: 0.9em;
+  }
+
+  /* Modal */
+  .modal-content {
+    width: 95%;
+    max-height: 85vh;
+    margin: var(--spacing-sm);
+  }
+
+  /* Footer */
+  .footer {
+    padding: var(--spacing-md);
+    font-size: 0.85em;
+  }
+
+  .footer .container {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .footer .pull-right {
+    float: none;
+    margin-top: var(--spacing-sm);
+  }
+
+  /* Breadcrumb */
+  #modemenu {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  #modemenu li {
+    margin: var(--spacing-xs);
+  }
+
+  /* Hide unnecessary elements on mobile */
+  .hide-mobile {
+    display: none !important;
+  }
+
+  /* Show mobile-only elements */
+  .show-mobile {
+    display: block !important;
+  }
+
+  /* Text alignment */
+  .mobile-text-center {
+    text-align: center;
+  }
+
+  /* Utility adjustments */
+  .mt-1, .mt-2, .mt-3 { margin-top: var(--spacing-sm); }
+  .mb-1, .mb-2, .mb-3 { margin-bottom: var(--spacing-sm); }
+  .p-1, .p-2, .p-3 { padding: var(--spacing-sm); }
+}
+
+/* Small Mobile Devices */
+@media only screen and (max-width: 480px) {
+  :root {
+    --font-size-base: 13px;
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+  }
+
+  #menubar::before {
+    width: 36px;
+    height: 36px;
+  }
+
+  .hostname {
+    font-size: 1.3em;
+  }
+
+  .distversion {
+    font-size: 0.8em;
+  }
+
+  #maincontent {
+    padding: var(--spacing-xs);
+  }
+
+  .container,
+  .cbi-map {
+    margin-bottom: var(--spacing-sm);
+  }
+
+  h1 { font-size: 1.4em; }
+  h2 { font-size: 1.3em; }
+  h3 { font-size: 1.1em; }
+  h4 { font-size: 1em; }
+
+  .cbi-map h2,
+  .cbi-section h3 {
+    font-size: 1em;
+    padding: var(--spacing-sm);
+  }
+
+  .cbi-section-node {
+    padding: var(--spacing-sm);
+  }
+
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="number"],
+  select,
+  textarea {
+    padding: var(--spacing-sm);
+  }
+
+  .btn,
+  .cbi-button,
+  button,
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"] {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 0.9em;
+  }
+
+  .table th,
+  .cbi-section-table th,
+  .table td,
+  .cbi-section-table td {
+    padding: var(--spacing-xs);
+    font-size: 0.85em;
+  }
+}
+
+/* Landscape Orientation */
+@media only screen and (max-width: 768px) and (orientation: landscape) {
+  #menubar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    min-height: 60px;
+  }
+
+  #menubar::before {
+    width: 40px;
+    height: 40px;
+    margin-right: var(--spacing-sm);
+    margin-bottom: 0;
+  }
+
+  .hostname {
+    font-size: 1.2em;
+    margin-right: var(--spacing-md);
+    width: auto;
+  }
+
+  .distversion {
+    width: auto;
+    flex: 1;
+  }
+
+  #indicators {
+    width: auto;
+    margin-top: 0;
+  }
+}
+
+/* Touch Device Optimizations */
+@media (hover: none) and (pointer: coarse) {
+  /* Increase tap targets */
+  a, button, input[type="button"], input[type="submit"],
+  .btn, .cbi-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Remove hover effects, use active instead */
+  .main-menu > ul > li > a:hover {
+    background-color: transparent;
+  }
+
+  .main-menu > ul > li > a:active {
+    background-color: var(--background-dark);
+    color: var(--secondary-color);
+  }
+
+  /* Better touch feedback */
+  button:active,
+  .btn:active,
+  .cbi-button:active {
+    transform: scale(0.98);
+  }
+
+  /* Disable animations that may cause performance issues */
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print Styles */
+@media print {
+  /* Hide navigation and non-essential elements */
+  #menubar,
+  .main-menu,
+  #indicators,
+  .footer,
+  .cbi-page-actions,
+  .cbi-section-actions,
+  .btn,
+  .cbi-button {
+    display: none !important;
+  }
+
+  /* Optimize for print */
+  body {
+    background: white;
+    color: black;
+  }
+
+  #maincontent {
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .container,
+  .cbi-map {
+    box-shadow: none;
+    border: 1px solid #ddd;
+    page-break-inside: avoid;
+  }
+
+  /* Remove backgrounds for better printing */
+  .cbi-map h2,
+  .cbi-section h3 {
+    background: white;
+    color: black;
+    border-bottom: 2px solid #000;
+  }
+}
