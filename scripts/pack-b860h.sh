@@ -115,9 +115,13 @@ rebuild_openwrt() {
         header "Rebuilding OpenWrt from Scratch"
         info "Running make defconfig && make -j\$(nproc)..."
         
-        # Execute compilation in the current directory
-        make defconfig || true
-        make -j$(nproc) || make -j1 V=s || error "OpenWrt compilation failed!"
+        # OpenWrt forbids compiling as root. Since this script is run via sudo,
+        # we must drop privileges back to the original user for the compilation step.
+        local orig_user="${SUDO_USER:-$USER}"
+        
+        # Execute compilation in the current directory as the normal user
+        su -c "make defconfig" "${orig_user}" || true
+        su -c "make -j$(nproc) || make -j1 V=s" "${orig_user}" || error "OpenWrt compilation failed!"
         
         success "OpenWrt compilation finished!"
     fi
