@@ -2,14 +2,13 @@
 # TIrtayana OpenWrt - Build & Package for STB B860H (S905X)
 # Uses ophub/amlogic-s9xxx-openwrt for final packaging
 # =============================================================
-
 name: Build TIrtayana OpenWrt for B860H
 
 on:
   workflow_dispatch:
     inputs:
       build_profile:
-        description: 'Profile Build (all/minimal/standard/education)'
+        description: 'Build Profile (all/minimal/standard/education)'
         required: false
         default: 'all'
         type: choice
@@ -19,23 +18,23 @@ on:
           - standard
           - education
       kernel_version:
-        description: 'Overide Kernel (opsional, contoh: 6.1.y_6.6.y)'
+        description: 'Override Kernel (optional, e.g. 6.1.y_6.6.y)'
         required: false
         default: ''
       openwrt_ip:
-        description: 'IP Address default OpenWrt'
+        description: 'Default OpenWrt IP Address'
         required: false
         default: '192.168.1.1'
       rootfs_size:
-        description: 'Ukuran partisi ROOTFS (MB)'
+        description: 'ROOTFS partition size (MB)'
         required: false
         default: '1024'
       kernel_repo:
-        description: 'Custom Kernel Repository (opsional)'
+        description: 'Custom Kernel Repository (optional)'
         required: false
         default: ''
       upload_release:
-        description: 'Upload ke GitHub Releases?'
+        description: 'Upload to GitHub Releases?'
         required: false
         default: true
         type: boolean
@@ -59,10 +58,229 @@ env:
 
 jobs:
   # ────────────────────────────────────────────
-  # JOB 0: Prepare Build Matrix
+  # JOB 0: System Check & Dependency Guide
+  # ────────────────────────────────────────────
+  system_check:
+    name: 🖥️ System Check & Install Guide
+    runs-on: ubuntu-22.04
+    outputs:
+      os_ready: ${{ steps.check.outputs.os_ready }}
+    steps:
+      - name: 🔍 Detect OS & Check Dependencies
+        id: check
+        run: |
+          echo "======================================================"
+          echo "  TIrtayana OpenWrt — Build System Requirement Check  "
+          echo "======================================================"
+          echo ""
+          echo "📌 OS Information:"
+          lsb_release -a 2>/dev/null || cat /etc/os-release
+          echo ""
+          echo "💻 CPU   : $(nproc) cores available"
+          echo "💾 RAM   : $(free -h | awk '/Mem:/{print $2}') total"
+          echo "📦 Disk  : $(df -h / | awk 'NR==2{print $4}') free"
+          echo ""
+
+          # ── Check required tools ──
+          MISSING=()
+          TOOLS=(git make gcc g++ flex bison gawk wget unzip python3 rsync ccache)
+          echo "🔧 Checking required tools:"
+          for t in "${TOOLS[@]}"; do
+            if command -v "$t" &>/dev/null; then
+              echo "  ✅ $t  →  $(command -v $t)"
+            else
+              echo "  ❌ $t  →  NOT FOUND"
+              MISSING+=("$t")
+            fi
+          done
+
+          # ── Check pahole / dwarves ──
+          echo ""
+          echo "🔍 Checking pahole (dwarves):"
+          if command -v pahole &>/dev/null; then
+            PAHOLE_VER=$(pahole --version 2>&1 | grep -oP '\d+\.\d+' | head -1)
+            echo "  ✅ pahole $PAHOLE_VER found"
+            MAJOR=$(echo $PAHOLE_VER | cut -d. -f1)
+            MINOR=$(echo $PAHOLE_VER | cut -d. -f2)
+            if [ "$MAJOR" -lt 1 ] || { [ "$MAJOR" -eq 1 ] && [ "$MINOR" -lt 16 ]; }; then
+              echo "  ⚠️  pahole $PAHOLE_VER is older than 1.16 — may cause build errors with kernel 6.6"
+              echo "     Fix: sudo apt install --reinstall dwarves"
+            fi
+          else
+            echo "  ❌ pahole NOT FOUND"
+            MISSING+=("dwarves")
+          fi
+
+          # ── Check Python3 modules ──
+          echo ""
+          echo "🐍 Checking Python3 modules:"
+          for mod in distutils setuptools; do
+            if python3 -c "import $mod" 2>/dev/null; then
+              echo "  ✅ python3-$mod"
+            else
+              echo "  ⚠️  python3-$mod not found (non-fatal on Ubuntu 24.04+)"
+            fi
+          done
+
+          # ── Summary & per-OS install instructions ──
+          echo ""
+          echo "======================================================"
+          if [ ${#MISSING[@]} -eq 0 ]; then
+            echo "✅ All required dependencies are present. Build is ready!"
+            echo "os_ready=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Missing dependencies: ${MISSING[*]}"
+            echo ""
+            echo "╔══════════════════════════════════════════════════════╗"
+            echo "║       INSTALL INSTRUCTIONS BY OPERATING SYSTEM       ║"
+            echo "╚══════════════════════════════════════════════════════╝"
+            echo ""
+
+            . /etc/os-release
+            case "$ID" in
+              ubuntu|debian)
+                echo "▶▶ Ubuntu / Debian"
+                echo "──────────────────────────────────────────────────"
+                echo ""
+                echo "  Step 1 — Update package list:"
+                echo "    sudo apt update"
+                echo ""
+                echo "  Step 2 — Install all required dependencies:"
+                echo "    sudo apt install -y \\"
+                echo "      ack antlr3 asciidoc autoconf automake autopoint \\"
+                echo "      binutils bison build-essential bzip2 ccache clang \\"
+                echo "      cmake cpio curl device-tree-compiler ecj fastjar \\"
+                echo "      flex g++-multilib gawk gcc-multilib gettext git \\"
+                echo "      genisoimage gperf haveged help2man intltool \\"
+                echo "      lib32gcc-s1 libc6-dev-i386 libelf-dev libfuse-dev \\"
+                echo "      libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev \\"
+                echo "      libmpfr-dev libncurses5-dev libncursesw5-dev \\"
+                echo "      libpython3-dev libreadline-dev libssl-dev libtool \\"
+                echo "      lrzsz mkisofs msmtp nano ninja-build p7zip \\"
+                echo "      p7zip-full patch pkgconf python3 python3-pip \\"
+                echo "      python3-ply python3-pyelftools python3-setuptools \\"
+                echo "      qemu-utils rsync scons squashfs-tools subversion \\"
+                echo "      swig texinfo uglifyjs upx-ucl unzip vim wget \\"
+                echo "      xmlto xxd zlib1g-dev dwarves"
+                echo ""
+                if [[ "$VERSION_ID" == "24.04" ]]; then
+                  echo "  ⚠️  Note for Ubuntu 24.04:"
+                  echo "      The package 'python3-distutils' has been removed since Ubuntu 24.04."
+                  echo "      Use 'python3-setuptools' as a replacement (already included above)."
+                  echo ""
+                fi
+                echo "  Step 3 — Clean previous build cache (optional but recommended):"
+                echo "    cd ~/openwrt && make dirclean"
+                echo ""
+                echo "  Step 4 — Verify pahole version:"
+                echo "    pahole --version   # must be >= 1.16 for kernel 6.6.x"
+                ;;
+
+              fedora)
+                echo "▶▶ Fedora"
+                echo "──────────────────────────────────────────────────"
+                echo ""
+                echo "  Step 1 — Install Development Tools group:"
+                echo "    sudo dnf groupinstall 'Development Tools'"
+                echo ""
+                echo "  Step 2 — Install additional dependencies:"
+                echo "    sudo dnf install -y \\"
+                echo "      git bison flex gcc-c++ gawk gettext \\"
+                echo "      ncurses-devel openssl-devel python3-setuptools \\"
+                echo "      rsync unzip zlib-devel wget dwarves \\"
+                echo "      elfutils-devel gmp-devel mpfr-devel libmpc-devel \\"
+                echo "      ccache ninja-build pkgconf python3-pyelftools \\"
+                echo "      squashfs-tools swig perl-FindBin perl-Thread-Queue \\"
+                echo "      perl-IPC-Cmd qemu-img"
+                echo ""
+                echo "  Step 3 — Verify pahole version:"
+                echo "    pahole --version   # must be >= 1.16"
+                ;;
+
+              arch|manjaro)
+                echo "▶▶ Arch Linux / Manjaro"
+                echo "──────────────────────────────────────────────────"
+                echo ""
+                echo "  Step 1 — Sync database and install packages:"
+                echo "    sudo pacman -Sy --needed \\"
+                echo "      base-devel git bison flex gawk gettext \\"
+                echo "      ncurses openssl python-setuptools python-pyelftools \\"
+                echo "      rsync unzip zlib wget dwarves libelf \\"
+                echo "      gmp mpfr libmpc ccache ninja pkgconf \\"
+                echo "      squashfs-tools swig qemu-base"
+                echo ""
+                echo "  Step 2 — (Optional) Install AUR helper if not already present:"
+                echo "    sudo pacman -S --needed yay"
+                echo ""
+                echo "  Step 3 — Verify pahole version:"
+                echo "    pahole --version   # must be >= 1.16"
+                ;;
+
+              opensuse*|sles)
+                echo "▶▶ openSUSE / SLES"
+                echo "──────────────────────────────────────────────────"
+                echo ""
+                echo "  Step 1 — Install development pattern:"
+                echo "    sudo zypper install -t pattern devel_basis"
+                echo ""
+                echo "  Step 2 — Install additional dependencies:"
+                echo "    sudo zypper install -y \\"
+                echo "      git bison flex gawk gettext-runtime \\"
+                echo "      ncurses-devel libopenssl-devel python3-setuptools \\"
+                echo "      rsync unzip zlib-devel wget dwarves \\"
+                echo "      libelf-devel gmp-devel mpfr-devel mpc-devel \\"
+                echo "      ccache ninja pkgconf python3-pyelftools squashfs swig"
+                echo ""
+                echo "  Step 3 — Verify pahole version:"
+                echo "    pahole --version   # must be >= 1.16"
+                ;;
+
+              *)
+                echo "▶▶ Unrecognized distro: '$ID'"
+                echo "──────────────────────────────────────────────────"
+                echo ""
+                echo "  Please install the equivalent packages for your distro."
+                echo ""
+                echo "  Required:"
+                echo "    git, make, gcc, g++, flex, bison, gawk, wget, unzip,"
+                echo "    python3, python3-setuptools, rsync, ccache,"
+                echo "    libncurses-dev, libssl-dev, libelf-dev, zlib-dev"
+                echo ""
+                echo "  Required for kernel 6.6.x:"
+                echo "    dwarves (pahole >= 1.16)"
+                echo ""
+                echo "  Official reference:"
+                echo "    https://openwrt.org/docs/guide-developer/toolchain/install-buildsystem"
+                ;;
+            esac
+
+            echo ""
+            echo "  After installation is complete, re-run this workflow."
+            echo "os_ready=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: 📋 Show Build Environment Summary
+        run: |
+          echo "======================================================"
+          echo "  Build Environment Summary"
+          echo "======================================================"
+          echo "🔧 gcc    : $(gcc --version | head -1)"
+          echo "🔧 g++    : $(g++ --version | head -1)"
+          echo "🔧 make   : $(make --version | head -1)"
+          echo "🔧 python : $(python3 --version)"
+          echo "🔧 git    : $(git --version)"
+          echo "🔧 pahole : $(pahole --version 2>&1 | head -1)"
+          echo "🔧 ccache : $(ccache --version 2>/dev/null | head -1 || echo 'not installed')"
+          echo "🔧 nproc  : $(nproc) cores available"
+          echo "======================================================"
+
+  # ────────────────────────────────────────────
+  # JOB 1: Prepare Build Matrix
   # ────────────────────────────────────────────
   prepare_matrix:
     name: 🔍 Prepare Matrix
+    needs: system_check
     runs-on: ubuntu-22.04
     outputs:
       profiles: ${{ steps.set-matrix.outputs.profiles }}
@@ -77,11 +295,11 @@ jobs:
           fi
 
   # ────────────────────────────────────────────
-  # JOB 1: Build OpenWrt Generic ARM64 Rootfs
+  # JOB 2: Build OpenWrt Generic ARM64 Rootfs
   # ────────────────────────────────────────────
   build:
     name: 🔨 Build OpenWrt (${{ matrix.profile }})
-    needs: prepare_matrix
+    needs: [system_check, prepare_matrix]
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
@@ -89,7 +307,6 @@ jobs:
         profile: ${{ fromJson(needs.prepare_matrix.outputs.profiles) }}
     outputs:
       COMPILE_STATUS: ${{ steps.compile.outputs.COMPILE_STATUS }}
-
     steps:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
@@ -134,11 +351,10 @@ jobs:
             p7zip-full patch pkgconf python3 python3-pip python3-ply \
             python3-pyelftools python3-setuptools qemu-utils rsync scons \
             squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip \
-            vim wget xmlto xxd zlib1g-dev
+            vim wget xmlto xxd zlib1g-dev dwarves
 
-      - name: 🔧 Clone Custom Feeds & Packages
+      - name: 🔧 Update Feeds & Install Packages
         run: |
-          # Update all configured feeds
           ./scripts/feeds update -a
           ./scripts/feeds install -a
           echo "✅ Feeds updated and installed"
@@ -151,17 +367,42 @@ jobs:
           elif [ -e "$CONFIG_FILE" ]; then
             cp "$CONFIG_FILE" .config
           fi
-
           # Enforce armsr/armv8 architecture target
           echo "CONFIG_TARGET_armsr=y" >> .config
           echo "CONFIG_TARGET_armsr_armv8=y" >> .config
           echo "CONFIG_TARGET_armsr_armv8_DEVICE_generic=y" >> .config
           echo "CONFIG_TARGET_ROOTFS_TARGZ=y" >> .config
-
           make defconfig
           echo "=== Active configuration summary ==="
           grep "^CONFIG_TARGET" .config
           grep "^CONFIG_PACKAGE_luci-theme" .config || true
+
+      - name: 🔧 Fix Kernel Config Conflicts
+        run: |
+          echo "=== Checking for conflicting kernel config options ==="
+          CONFLICT_OPTS=(
+            "CONFIG_ARM64_VA_BITS_48"
+            "CONFIG_IOMMU_DEFAULT_PASSTHROUGH"
+            "CONFIG_NO_HZ_IDLE"
+          )
+          for opt in "${CONFLICT_OPTS[@]}"; do
+            if grep -q "^${opt}=" .config || grep -q "^# ${opt} " .config; then
+              echo "  ⚠️  Removing conflicting option: $opt"
+              sed -i "/^${opt}=/d" .config
+              sed -i "/^# ${opt} /d" .config
+            else
+              echo "  ✅ No conflict found for: $opt"
+            fi
+          done
+
+          echo ""
+          echo "=== Re-running defconfig to resolve choice states cleanly ==="
+          make defconfig
+          echo ""
+          echo "=== Verifying options after fix ==="
+          grep -E "ARM64_VA_BITS|IOMMU_DEFAULT|NO_HZ" .config || echo "  (none found — resolved by defconfig)"
+          echo "✅ Kernel config conflict fix complete"
+      # ───────────────────────────────────────────────────────────────
 
       - name: 📁 Copy Custom Files
         run: |
@@ -222,18 +463,17 @@ jobs:
           retention-days: 7
 
   # ────────────────────────────────────────────
-  # JOB 2: Package for B860H via ophub
+  # JOB 3: Package for B860H via ophub
   # ────────────────────────────────────────────
   package:
     name: 📦 Package for B860H (${{ matrix.profile }})
-    needs: [prepare_matrix, build]
+    needs: [system_check, prepare_matrix, build]
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
         profile: ${{ fromJson(needs.prepare_matrix.outputs.profiles) }}
     if: always()
-
     steps:
       - name: 📥 Download rootfs Artifact
         uses: actions/download-artifact@v4
@@ -257,20 +497,20 @@ jobs:
         env:
           CUSTOM_KERNEL_REPO: ${{ github.event.inputs.kernel_repo }}
         with:
-          # Path ke rootfs file
+          # Path to rootfs file
           openwrt_path: openwrt-armsr/*rootfs.tar.gz
-          # Board target: s905x = B860H, HG680P, dll
+          # Board target: s905x = B860H, HG680P, etc.
           openwrt_board: ${{ env.BOARD }}
-          # Versi kernel yang akan digunakan (dari ophub kernel repo)
-          # Logic: Jika input kosong, periksa matriks. Minimal->5.15.y, Standard->6.1.y, Education->6.6.y
+          # Kernel version logic: if input is empty, select by profile
+          # Minimal → 5.15.y | Standard → 6.1.y | Education → 6.6.y
           openwrt_kernel: ${{ github.event.inputs.kernel_version || (matrix.profile == 'education' && '6.6.y') || (matrix.profile == 'standard' && '6.1.y') || '5.15.y' }}
-          # Otomatis pilih versi kernel terbaru dari seri yang sama
+          # Automatically select latest kernel from the same series
           auto_kernel: true
-          # IP default router
+          # Default router IP
           openwrt_ip: ${{ github.event.inputs.openwrt_ip || '192.168.1.1' }}
-          # Ukuran partisi: BOOTFS/ROOTFS dalam MB
+          # Partition sizes: BOOTFS/ROOTFS in MB
           openwrt_size: 256/${{ github.event.inputs.rootfs_size || '1024' }}
-          # Nama builder untuk identifikasi
+          # Builder name for identification
           builder_name: ${{ env.BUILDER_NAME }}_${{ matrix.profile }}
 
       - name: 📋 Show Packaged Outputs
@@ -278,8 +518,8 @@ jobs:
           echo "=== Packaged firmware files ==="
           ls -lh ${{ env.PACKAGED_OUTPUTPATH }}/ 2>/dev/null || echo "No output found"
           echo ""
-          echo "Packaging date: ${{ env.PACKAGED_OUTPUTDATE }}"
-          echo "Status: ${{ env.PACKAGED_STATUS }}"
+          echo "Packaging date : ${{ env.PACKAGED_OUTPUTDATE }}"
+          echo "Status         : ${{ env.PACKAGED_STATUS }}"
 
       - name: 📤 Upload B860H Firmware as Artifact
         uses: actions/upload-artifact@v4
@@ -303,36 +543,35 @@ jobs:
           generateReleaseNotes: false
           token: ${{ secrets.GITHUB_TOKEN }}
           body: |
-            ## 📦 TIrtayana OpenWrt untuk STB B860H (${{ matrix.profile }})
+            ## 📦 TIrtayana OpenWrt for STB B860H (${{ matrix.profile }})
+            > Automatically built by GitHub Actions
 
-            > Build otomatis oleh GitHub Actions
-
-            ### 🖥️ Informasi Firmware
+            ### 🖥️ Firmware Information
             | Item | Detail |
             |------|--------|
             | **Board** | STB B860H (Amlogic S905X) |
             | **Profile** | ${{ matrix.profile }} |
             | **Target** | armsr/armv8 → ophub packaged |
-            | **Tema LuCI** | Argon (Modern Dark Theme) |
-            | **Kernel** | Dinamis (Minimal: 5.15.y, Standard: 6.1.y, Education: 6.6.y) atau Custom |
-            | **IP Default** | ${{ github.event.inputs.openwrt_ip || '192.168.1.1' }} |
+            | **LuCI Theme** | Argon (Modern Dark Theme) |
+            | **Kernel** | Dynamic (Minimal: 5.15.y, Standard: 6.1.y, Education: 6.6.y) or Custom |
+            | **Default IP** | ${{ github.event.inputs.openwrt_ip || '192.168.1.1' }} |
             | **Username** | root |
-            | **Password** | (kosong) |
-            | **Tanggal Build** | ${{ env.PACKAGED_OUTPUTDATE }} |
+            | **Password** | (empty) |
+            | **Build Date** | ${{ env.PACKAGED_OUTPUTDATE }} |
 
-            ### 🚀 Cara Install ke B860H
-            1. Flash firmware ke **USB drive** atau **SD card** menggunakan Rufus / balenaEtcher
-            2. Colok USB/SD ke STB B860H dan nyalakan
-            3. Akses LuCI di `http://192.168.1.1`
-            4. Login dengan username `root` (password kosong)
-            5. Buka **System → Amlogic Service → Install OpenWrt**
-            6. Pilih perangkat `B860H` dan klik **Install**
+            ### 🚀 How to Install on B860H
+            1. Flash the firmware to a **USB drive** or **SD card** using Rufus / balenaEtcher
+            2. Plug the USB/SD into the STB B860H and power it on
+            3. Access LuCI at `http://192.168.1.1`
+            4. Log in with username `root` (empty password)
+            5. Go to **System → Amlogic Service → Install OpenWrt**
+            6. Select device `B860H` and click **Install**
 
-            ### ⚠️ Catatan Penting
-            - Backup Android ROM original terlebih dahulu via `openwrt-ddbr`
-            - Untuk update kernel: **System → Amlogic Service → Update Kernel**
-            - File `.img.gz` diflash langsung ke USB/SD
+            ### ⚠️ Important Notes
+            - Back up your original Android ROM first using `openwrt-ddbr`
+            - To update the kernel: **System → Amlogic Service → Update Kernel**
+            - Flash the `.img.gz` file directly to your USB/SD card
 
-            ### 🎨 Tema
-            Menggunakan **luci-theme-argon** - tema modern dengan dukungan dark mode,
-            gambar latar belakang kustom, dan tampilan yang bersih.
+            ### 🎨 Theme
+            Uses **luci-theme-argon** — a modern theme with dark mode support,
+            custom background images, and a clean interface.
