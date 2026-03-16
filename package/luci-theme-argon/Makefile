@@ -13,7 +13,7 @@ PKG_RELEASE:=3
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/jerrykuku/luci-theme-argon.git
 PKG_SOURCE_DATE:=2024-03-01
-PKG_SOURCE_VERSION:=d9be7a2a2e2f04ea9e13c89cd77efb4fd7bfcce4
+PKG_SOURCE_VERSION:=7aba78ccb84297496f63e1dacefe64c89d83d72e
 PKG_MIRROR_HASH:=skip
 
 PKG_MAINTAINER:=jerrykuku <jerrykuku@gmail.com>
