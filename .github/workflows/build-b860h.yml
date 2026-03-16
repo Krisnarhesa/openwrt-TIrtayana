@@ -151,6 +151,13 @@ jobs:
           elif [ -e "$CONFIG_FILE" ]; then
             cp "$CONFIG_FILE" .config
           fi
+
+          # Enforce armsr/armv8 architecture target
+          echo "CONFIG_TARGET_armsr=y" >> .config
+          echo "CONFIG_TARGET_armsr_armv8=y" >> .config
+          echo "CONFIG_TARGET_armsr_armv8_DEVICE_generic=y" >> .config
+          echo "CONFIG_TARGET_ROOTFS_TARGZ=y" >> .config
+
           make defconfig
           echo "=== Active configuration summary ==="
           grep "^CONFIG_TARGET" .config
