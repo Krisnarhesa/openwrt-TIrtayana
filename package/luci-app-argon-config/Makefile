@@ -12,8 +12,8 @@ PKG_RELEASE:=3
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/jerrykuku/luci-app-argon-config.git
-PKG_SOURCE_DATE:=2024-02-01
-PKG_SOURCE_VERSION:=be4b765de5a66e8c4fd2dbfa89f32def06680a2e
+PKG_SOURCE_DATE:=$(shell date +%Y-%m-%d)
+PKG_SOURCE_VERSION:=main
 PKG_MIRROR_HASH:=skip
 
 PKG_MAINTAINER:=jerrykuku <jerrykuku@gmail.com>

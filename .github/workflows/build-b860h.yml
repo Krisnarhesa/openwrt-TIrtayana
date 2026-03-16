@@ -387,31 +387,61 @@ jobs:
           grep "^CONFIG_TARGET" .config
           grep "^CONFIG_PACKAGE_luci-theme" .config || true
 
-      - name: 🔧 Fix Kernel Config Conflicts
-        run: |
-          echo "=== Checking for conflicting kernel config options ==="
-          CONFLICT_OPTS=(
-            "CONFIG_ARM64_VA_BITS_48"
-            "CONFIG_IOMMU_DEFAULT_PASSTHROUGH"
-            "CONFIG_NO_HZ_IDLE"
-          )
-          for opt in "${CONFLICT_OPTS[@]}"; do
-            if grep -q "^${opt}=" .config || grep -q "^# ${opt} " .config; then
-              echo "  ⚠️  Removing conflicting option: $opt"
-              sed -i "/^${opt}=/d" .config
-              sed -i "/^# ${opt} /d" .config
-            else
-              echo "  ✅ No conflict found for: $opt"
-            fi
-          done
+- name: 🔧 Fix Kernel Config Conflicts
+  run: |
+    echo "=== Patching OpenWrt kernel config files ==="
 
-          echo ""
-          echo "=== Re-running defconfig to resolve choice states cleanly ==="
-          make defconfig
-          echo ""
-          echo "=== Verifying options after fix ==="
-          grep -E "ARM64_VA_BITS|IOMMU_DEFAULT|NO_HZ" .config || echo "  (none found — resolved by defconfig)"
-          echo "✅ Kernel config conflict fix complete"
+    # These options exist in OpenWrt's internal target config files
+    # and conflict with Kconfig 'choice' blocks in kernel 6.6.103.
+    # They must be removed from ALL config files that feed into
+    # the kernel .config merger (kconfig.pl), not just root .config.
+
+    CONFLICT_OPTS=(
+      "CONFIG_ARM64_VA_BITS_48"
+      "CONFIG_IOMMU_DEFAULT_PASSTHROUGH"
+      "CONFIG_NO_HZ_IDLE"
+    )
+
+    # Patch all kernel config files in the target directory
+    CONFIG_FILES=(
+      "target/linux/generic/config-6.6"
+      "target/linux/armsr/config-6.6"
+      "target/linux/armsr/armv8/config-6.6"
+    )
+
+    for cfg in "${CONFIG_FILES[@]}"; do
+      if [ -f "$cfg" ]; then
+        echo "  Patching: $cfg"
+        for opt in "${CONFLICT_OPTS[@]}"; do
+          sed -i "/^${opt}=/d" "$cfg"
+          sed -i "/^# ${opt} is not set/d" "$cfg"
+          sed -i "/^# ${opt} /d" "$cfg"
+        done
+        echo "  ✅ Done: $cfg"
+      else
+        echo "  ⚠️  Not found (skip): $cfg"
+      fi
+    done
+
+    # Also patch root .config just in case
+    for opt in "${CONFLICT_OPTS[@]}"; do
+      sed -i "/^${opt}=/d" .config 2>/dev/null || true
+      sed -i "/^# ${opt} is not set/d" .config 2>/dev/null || true
+      sed -i "/^# ${opt} /d" .config 2>/dev/null || true
+    done
+
+    # Re-run defconfig after patching
+    make defconfig
+
+    echo ""
+    echo "=== Verifying conflicts are cleared ==="
+    grep -rE "ARM64_VA_BITS_48|IOMMU_DEFAULT_PASSTHROUGH|NO_HZ_IDLE" \
+      target/linux/generic/config-6.6 \
+      target/linux/armsr/config-6.6 \
+      target/linux/armsr/armv8/config-6.6 \
+      .config 2>/dev/null \
+      && echo "⚠️  Some options still present (may be OK if resolved by defconfig)" \
+      || echo "✅ All conflicting options cleared"
       # ───────────────────────────────────────────────────────────────
 
       - name: 📁 Copy Custom Files
