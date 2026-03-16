@@ -111,6 +111,14 @@ jobs:
           echo "=== Disk space after cleanup ==="
           df -hT
 
+      - name: 🗄️ Cache Downloaded Packages
+        uses: actions/cache@v4
+        with:
+          path: dl
+          key: ${{ runner.os }}-openwrt-dl-${{ hashFiles('feeds.conf.default', 'package/**/Makefile') }}
+          restore-keys: |
+            ${{ runner.os }}-openwrt-dl-
+
       - name: 📦 Install Build Dependencies
         run: |
           sudo apt-get update -y
