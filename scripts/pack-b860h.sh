@@ -75,12 +75,12 @@ usage() {
     echo "  -r  Custom Ophub   (default: ${OPHUB_REPO})"
     echo "  -R  Custom Kernel  (default: opsional)"
     echo "  -p  Profile build  (default: opsional)"
+    echo "  -c  Kompilasi Ulang OpenWrt dari awal sebelum packaging"
     echo "  -h  Tampilkan bantuan ini"
     echo ""
     echo "Contoh:"
-    echo "  sudo $0"
-    echo "  sudo $0 -k 6.6.y -s 256/2048"
-    echo "  sudo $0 -k 6.1.y -i 10.0.0.1 -n MyBuild"
+    echo "  sudo $0 -c -k 6.6.y"
+    echo "  sudo $0 -k 6.1.y -i 10.0.0.1"
     exit 0
 }
 
@@ -96,6 +96,7 @@ while getopts "k:i:s:b:n:o:r:R:p:h" opt; do
         R) KERNEL_REPO="$OPTARG" ;;
         p) PROFILE="$OPTARG" ;;
         h) usage ;;
+        c) COMPILE_FIRST="true" ;;
         *) usage ;;
     esac
 done
@@ -104,6 +105,20 @@ done
 check_root() {
     if [ "$(id -u)" -ne 0 ]; then
         error "Script ini harus dijalankan sebagai root.\n  Gunakan: sudo $0 $*"
+    fi
+}
+
+# ── Compile Ulang (Opsional) ──────────────────────────────────
+rebuild_openwrt() {
+    if [ "${COMPILE_FIRST}" == "true" ]; then
+        header "Membangun Ulang OpenWrt dari Awal"
+        info "Menjalankan make clean && make -j\$(nproc)..."
+        
+        # Eksekusi kompilasi dengan memanggil Makefile OpenWrt di Current Dir
+        make defconfig || true
+        make -j$(nproc) || make -j1 V=s || error "Kompilasi OpenWrt Gagal!"
+        
+        success "Kompilasi OpenWrt Selesai!"
     fi
 }
 
@@ -136,6 +151,7 @@ find_rootfs() {
 
     # Cari di direktori build output
     ROOTFS_FILE=$(ls ${ROOTFS_PATTERN} 2>/dev/null | tail -1)
+
 
     if [ -z "${ROOTFS_FILE}" ]; then
         echo ""
@@ -290,6 +306,7 @@ main() {
     print_banner
     check_root "$@"
     check_deps
+    rebuild_openwrt
     find_rootfs
     setup_ophub
     prepare_workspace
