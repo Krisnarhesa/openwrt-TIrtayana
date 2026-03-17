@@ -406,32 +406,19 @@ jobs:
       # The armsr/armv8 values are correct for this ARM64 platform — leave them.
       - name: 🔧 Fix Kernel Config Conflicts
         run: |
-          GENERIC_CFG="target/linux/generic/config-6.6"
+          cat >> .config << 'EOF'
+          CONFIG_ARM64_VA_BITS_48=y
+          # CONFIG_ARM64_VA_BITS_39 is not set
+          CONFIG_NO_HZ_IDLE=y
+          # CONFIG_NO_HZ_FULL is not set
+          # CONFIG_HZ_PERIODIC is not set
+          CONFIG_IOMMU_DEFAULT_PASSTHROUGH=y
+          # CONFIG_IOMMU_DEFAULT_DMA_STRICT is not set
+          # CONFIG_IOMMU_DEFAULT_DMA_LAZY is not set
+          EOF
 
-          echo "=== Patching: $GENERIC_CFG ==="
-          echo "Before patch:"
-          grep -nE "ARM64_VA_BITS_48|NO_HZ_IDLE" "$GENERIC_CFG" || echo "  (not found)"
-
-          # Remove ONLY the "disabled" entries from generic config.
-          # These conflict with the "enabled" entries in armsr/armv8/config-6.6.
-          # IOMMU_DEFAULT_PASSTHROUGH is NOT in generic — no action needed for it.
-          sed -i "/^# CONFIG_ARM64_VA_BITS_48 is not set/d" "$GENERIC_CFG"
-          sed -i "/^# CONFIG_NO_HZ_IDLE is not set/d"       "$GENERIC_CFG"
-
-          echo ""
-          echo "After patch:"
-          grep -nE "ARM64_VA_BITS_48|NO_HZ_IDLE" "$GENERIC_CFG" \
-            && echo "⚠️  Entries still present — check manually" \
-            || echo "✅ Conflicts cleared from generic/config-6.6"
-
-          echo ""
-          echo "armsr/armv8/config-6.6 (unchanged — these values are correct):"
-          grep -nE "ARM64_VA_BITS_48|IOMMU_DEFAULT_PASSTHROUGH|NO_HZ_IDLE" \
-            target/linux/armsr/armv8/config-6.6 || echo "  (not found)"
-
-          echo ""
           make defconfig
-          echo "✅ defconfig re-applied successfully"
+          echo "✅ Kernel config conflicts resolved"
       # ───────────────────────────────────────────────────────────────
 
 
