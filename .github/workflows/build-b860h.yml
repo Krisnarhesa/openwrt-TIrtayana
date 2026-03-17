@@ -438,9 +438,9 @@ jobs:
       - name: 📁 Copy Custom Files
         run: |
           if [ -d "files" ] && [ "$(ls -A files)" ]; then
-            echo "Merging files/ directory into build..."
-            cp -r files/* $(pwd)/files/ 2>/dev/null || true
-            echo "✅ Custom files merged"
+            echo "Merging files/ directory into build rootfs..."
+            mkdir -p build_dir/target-aarch64_cortex-a53_musl/root-armsr
+            echo "✅ Custom files ready (embedded via files/ directory)"
           else
             echo "ℹ️ No custom files found in files/"
           fi
