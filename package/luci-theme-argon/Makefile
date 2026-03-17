@@ -1,59 +1,18 @@
-# SPDX-License-Identifier: MIT
 #
-# Copyright (C) 2023 jerrykuku <jerrykuku@gmail.com>
-# Packaged for TIrtayana OpenWrt build
+# Copyright (C) 2008-2019 Jerrykuku
+#
+# This is free software, licensed under the Apache License, Version 2.0 .
 #
 
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=luci-theme-argon
-PKG_VERSION:=2.3.1
-PKG_RELEASE:=3
+LUCI_TITLE:=Argon Theme
+LUCI_DEPENDS:=+wget +jsonfilter
+PKG_VERSION:=2.4.3
+PKG_RELEASE:=20250722
 
-PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=https://github.com/jerrykuku/luci-theme-argon.git
-PKG_SOURCE_DATE:=$(shell date +%Y-%m-%d)
-PKG_SOURCE_VERSION:=master
-PKG_MIRROR_HASH:=skip
+CONFIG_LUCI_CSSTIDY:=
 
-PKG_MAINTAINER:=jerrykuku <jerrykuku@gmail.com>
-PKG_LICENSE:=MIT
-
-LUCI_TITLE:=Argon - Clean and Modern LuCI Theme
-LUCI_DEPENDS:=+luci-base
-
-define Package/luci-theme-argon/postinst
-#!/bin/sh
-[ -n "$${IPKG_INSTROOT}" ] || {
-	uci -q get luci.themes.Argon > /dev/null 2>&1 || {
-		uci -q set luci.themes.Argon=/luci-static/argon
-		uci commit luci
-	}
-	uci -q set luci.main.mediaurlbase=/luci-static/argon
-	uci commit luci
-}
-exit 0
-endef
-
-define Package/luci-theme-argon/postrm
-#!/bin/sh
-[ -n "$${IPKG_INSTROOT}" ] || {
-	uci -q delete luci.themes.Argon
-	uci -q set luci.main.mediaurlbase=/luci-static/bootstrap
-	uci commit luci
-}
-exit 0
-endef
-
-define Package/luci-theme-argon
-  SECTION:=luci
-  CATEGORY:=LuCI
-  TITLE:=Argon - Clean and Modern LuCI Theme
-  DEPENDS:=+luci-base
-  PKGARCH:=all
-endef
-
-include $(INCLUDE_DIR)/package.mk
+include $(TOPDIR)/feeds/luci/luci.mk
 
 # call BuildPackage - OpenWrt buildroot signature
-$(eval $(call BuildPackage,luci-theme-argon))
