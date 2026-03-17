@@ -120,6 +120,15 @@ define Kernel/Configure/Default
 	echo "CONFIG_KALLSYMS_UNCOMPRESSED=y" >> $(LINUX_DIR)/.config.target
 	$(SCRIPT_DIR)/package-metadata.pl kconfig $(TMP_DIR)/.packageinfo $(TOPDIR)/.config $(KERNEL_PATCHVER) > $(LINUX_DIR)/.config.override
 	$(SCRIPT_DIR)/kconfig.pl 'm+' '+' $(LINUX_DIR)/.config.target /dev/null $(LINUX_DIR)/.config.override > $(LINUX_DIR)/.config.set
+	sed -i '/^# CONFIG_ARM64_VA_BITS_48 is not set/d' $(LINUX_DIR)/.config.set
+	sed -i '/^CONFIG_ARM64_VA_BITS_39=y/d' $(LINUX_DIR)/.config.set
+	sed -i '/^# CONFIG_NO_HZ_IDLE is not set/d' $(LINUX_DIR)/.config.set
+	sed -i '/^# CONFIG_IOMMU_DEFAULT_PASSTHROUGH is not set/d' $(LINUX_DIR)/.config.set
+	echo "CONFIG_ARM64_VA_BITS_48=y" >> $(LINUX_DIR)/.config.set
+	echo "# CONFIG_ARM64_VA_BITS_39 is not set" >> $(LINUX_DIR)/.config.set
+	echo "CONFIG_NO_HZ_IDLE=y" >> $(LINUX_DIR)/.config.set
+	echo "CONFIG_IOMMU_DEFAULT_PASSTHROUGH=y" >> $(LINUX_DIR)/.config.set
+	$(KERNEL_MAKE) olddefconfig
 	$(call Kernel/SetNoInitramfs)
 	rm -rf $(KERNEL_BUILD_DIR)/modules
 	cmp -s $(LINUX_DIR)/.config.set $(LINUX_DIR)/.config.prev || { \
