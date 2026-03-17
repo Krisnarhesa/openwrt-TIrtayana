@@ -128,13 +128,13 @@ define Kernel/Configure/Default
 	echo "# CONFIG_ARM64_VA_BITS_39 is not set" >> $(LINUX_DIR)/.config.set
 	echo "CONFIG_NO_HZ_IDLE=y" >> $(LINUX_DIR)/.config.set
 	echo "CONFIG_IOMMU_DEFAULT_PASSTHROUGH=y" >> $(LINUX_DIR)/.config.set
-	$(KERNEL_MAKE) olddefconfig
 	$(call Kernel/SetNoInitramfs)
 	rm -rf $(KERNEL_BUILD_DIR)/modules
 	cmp -s $(LINUX_DIR)/.config.set $(LINUX_DIR)/.config.prev || { \
 		cp $(LINUX_DIR)/.config.set $(LINUX_DIR)/.config; \
 		cp $(LINUX_DIR)/.config.set $(LINUX_DIR)/.config.prev; \
 	}
+	$(KERNEL_MAKE) olddefconfig
 	$(_SINGLE) [ -d $(LINUX_DIR)/user_headers ] || $(KERNEL_MAKE) $(if $(findstring uml,$(BOARD)),ARCH=$(ARCH)) INSTALL_HDR_PATH=$(LINUX_DIR)/user_headers headers_install
 	grep '=[ym]' $(LINUX_DIR)/.config.set | LC_ALL=C sort | $(MKHASH) md5 > $(LINUX_DIR)/.vermagic
 endef

@@ -475,7 +475,7 @@ jobs:
       - name: 📤 Upload Build Info as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-info
+          name: build-info-${{ matrix.profile }}
           path: |
             bin/targets/armsr/armv8/*.manifest
             bin/targets/armsr/armv8/config.buildinfo
@@ -541,6 +541,20 @@ jobs:
           echo "Packaging date : ${{ env.PACKAGED_OUTPUTDATE }}"
           echo "Status         : ${{ env.PACKAGED_STATUS }}"
 
+      - name: 🏷️ Rename firmware to TIrtayana naming
+        run: |
+          cd ${{ env.PACKAGED_OUTPUTPATH }}
+          for f in openwrt_amlogic_*.img.gz; do
+            [ -f "$f" ] || continue
+            # Extract kernel version from filename
+            KERNEL=$(echo "$f" | grep -oP 'k[\d.]+')
+            DATE=$(date +%Y.%m.%d)
+            NEWNAME="TIrtayana-B860H-${{ matrix.profile }}-${KERNEL}-${DATE}.img.gz"
+            mv "$f" "$NEWNAME"
+            echo "✅ Renamed: $f → $NEWNAME"
+          done
+          ls -lh
+
       - name: 📤 Upload B860H Firmware as Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -576,7 +590,7 @@ jobs:
             | **Kernel** | Dynamic (Minimal: 5.15.y, Standard: 6.1.y, Education: 6.6.y) or Custom |
             | **Default IP** | ${{ github.event.inputs.openwrt_ip || '192.168.1.1' }} |
             | **Username** | root |
-            | **Password** | (empty) |
+            | **Password** | TIudayana |
             | **Build Date** | ${{ env.PACKAGED_OUTPUTDATE }} |
 
             ### 🚀 How to Install on B860H
