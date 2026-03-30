@@ -439,6 +439,17 @@ jobs:
             echo "ℹ️ No custom files found in files/"
           fi
 
+      - name: 🎨 Ensure Tirtayana Theme is Selected
+        run: |
+          # Double-check that the custom theme package is selected
+          # (already set in .config.* files, this is a safety net)
+          grep -q "CONFIG_PACKAGE_luci-theme-argon-tirtayana=y" .config || \
+            echo "CONFIG_PACKAGE_luci-theme-argon-tirtayana=y" >> .config
+          grep -q "CONFIG_PACKAGE_luci-app-tirtayana-installer=y" .config || \
+            echo "CONFIG_PACKAGE_luci-app-tirtayana-installer=y" >> .config
+          echo "✅ Tirtayana theme + installer confirmed in .config"
+          echo "   Theme activation is handled by: files/etc/uci-defaults/99-argon-theme"
+
       - name: ⬇️ Download Packages
         run: |
           make download -j8 V=s
@@ -546,6 +557,26 @@ jobs:
           echo "Packaging date : ${{ env.PACKAGED_OUTPUTDATE }}"
           echo "Status         : ${{ env.PACKAGED_STATUS }}"
 
+      - name: 🏷️ Rename Output to TIrtayana Brand
+        run: |
+          OUTPATH="${{ env.PACKAGED_OUTPUTPATH }}"
+          PROFILE="${{ matrix.profile }}"
+          DATE_TAG=$(date +%Y.%m.%d-%H%M)
+          # Get the actual kernel version resolved by ophub (from the filename)
+          for f in "${OUTPATH}/"*.img.gz "${OUTPATH}/"*.img; do
+            [ -f "$f" ] || continue
+            # Extract kernel version from original name e.g. k6.1.167
+            KVER=$(basename "$f" | grep -oP 'k\d+\.\d+\.\d+' | head -1 || echo "k${{ github.event.inputs.kernel_version || matrix.profile == 'education' && '6.6' || matrix.profile == 'standard' && '6.1' || '5.15' }}")
+            if [[ "$f" == *.img.gz ]]; then
+              NEWNAME="${OUTPATH}/TIrtayana-B860H-${PROFILE}-${KVER}-${DATE_TAG}.img.gz"
+            else
+              NEWNAME="${OUTPATH}/TIrtayana-B860H-${PROFILE}-${KVER}-${DATE_TAG}.img"
+            fi
+            mv -v "$f" "$NEWNAME"
+          done
+          echo "=== Renamed files ==="
+          ls -lh "${OUTPATH}/"
+
       - name: 🏷️ Generate Package Release Tag
         id: pkg_tag
         run: |
@@ -588,14 +619,14 @@ jobs:
             | **Kernel** | Dynamic (Minimal: 5.15.y, Standard: 6.1.y, Education: 6.6.y) or Custom |
             | **Default IP** | ${{ github.event.inputs.openwrt_ip || '192.168.1.1' }} |
             | **Username** | root |
-            | **Password** | (empty) |
+            | **Password** | TIudayana |
             | **Build Date** | ${{ env.PACKAGED_OUTPUTDATE }} |
 
             ### 🚀 How to Install on B860H
             1. Flash the firmware to a **USB drive** or **SD card** using Rufus / balenaEtcher
             2. Plug the USB/SD into the STB B860H and power it on
             3. Access LuCI at `http://192.168.1.1`
-            4. Log in with username `root` (empty password)
+            4. Log in with username `root` and password `TIudayana`
             5. Go to **System → Amlogic Service → Install OpenWrt**
             6. Select device `B860H` and click **Install**
 

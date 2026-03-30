@@ -1,0 +1,55 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "TIrtayana Service"
+msgstr "Layanan TIrtayana"
+
+msgid "Install OpenWrt to eMMC"
+msgstr "Pasang OpenWrt ke eMMC"
+
+msgid "Update Kernel"
+msgstr "Perbarui Kernel"
+
+msgid "Backup / Restore ROM"
+msgstr "Backup / Pulihkan ROM"
+
+msgid "Install Settings"
+msgstr "Pengaturan Instalasi"
+
+msgid "Target Board"
+msgstr "Papan Target"
+
+msgid "RootFS Partition Size (MB)"
+msgstr "Ukuran Partisi RootFS (MB)"
+
+msgid "Run Installation"
+msgstr "Jalankan Instalasi"
+
+msgid "Install OpenWrt"
+msgstr "Pasang OpenWrt"
+
+msgid "⚡ Install to eMMC"
+msgstr "⚡ Pasang ke eMMC"
+
+msgid "Kernel Settings"
+msgstr "Pengaturan Kernel"
+
+msgid "Kernel Series"
+msgstr "Seri Kernel"
+
+msgid "Apply Kernel Update"
+msgstr "Terapkan Pembaruan Kernel"
+
+msgid "🔄 Update Kernel Now"
+msgstr "🔄 Perbarui Kernel Sekarang"
+
+msgid "Actions"
+msgstr "Aksi"
+
+msgid "Backup Android ROM"
+msgstr "Backup ROM Android"
+
+msgid "💾 Backup Android ROM to USB/SD"
+msgstr "💾 Backup ROM Android ke USB/SD"

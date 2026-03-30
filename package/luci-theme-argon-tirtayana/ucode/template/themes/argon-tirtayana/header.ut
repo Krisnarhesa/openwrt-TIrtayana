@@ -40,7 +40,10 @@
 		<header>
 			<div id="menubar">
 				<div class="brand">
-					<span class="hostname">{{ striptags(boardinfo.hostname ?? 'Tirtayana') }}</span>
+					<a href="{{ dispatcher.build_url('admin') }}" style="display:flex;align-items:center;text-decoration:none;gap:10px;">
+						<img src="{{ media }}/logo.svg" alt="Tirtayana" style="width:42px;height:42px;flex-shrink:0;">
+						<span class="hostname">{{ striptags(boardinfo.hostname ?? 'Tirtayana') }}</span>
+					</a>
 					<span class="distversion">
 						{{ `${boardinfo.release?.distribution ?? 'OpenWrt'} ${boardinfo.release?.version ?? ''}` }}
 					</span>

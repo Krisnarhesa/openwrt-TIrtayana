@@ -1,0 +1,6 @@
+config tirtayana
+	option board 'B860H'
+	option target 's905x'
+	option kernel '6.1.y'
+	option rootfs_size '1024'
+	option last_action 'none'

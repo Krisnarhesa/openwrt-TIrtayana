@@ -166,7 +166,32 @@ EOF
         
         chown "${orig_user}:${orig_user}" .config
 
-        info "Running make defconfig && make -j\$(nproc)..."
+        # ── Clean stale package install artifacts ────────────────────────
+        # When recompiling after a previous build used a different kernel version,
+        # the old kmod package stamps cause "kernel hash mismatch" errors.
+        # Root cause: bin/targets/.../packages/ contains old kmod-*.ipk files
+        # baked against the old kernel hash. The package index then lists these
+        # stale packages and make package/install picks them instead of the new ones.
+        info "Cleaning stale package install stamps + kmod artifacts (kernel hash reset)..."
+
+        # 1. Remove staging rootfs and package install stamp
+        rm -f  staging_dir/target-*/stamp/.package_install 2>/dev/null || true
+        rm -rf staging_dir/target-*/root-* 2>/dev/null || true
+        rm -f  staging_dir/target-*/pkginfo/*.control 2>/dev/null || true
+        rm -f  staging_dir/target-*/stamp/.target_compile 2>/dev/null || true
+
+        # 2. THE ACTUAL FIX: delete stale kmod .ipk files from bin/ output dir
+        #    These get built against old kernel hash and persist between runs.
+        find bin/ -name "kmod-*.ipk" -delete 2>/dev/null || true
+        # Also delete the package Packages index so it gets regenerated cleanly
+        find bin/ -name "Packages" -delete 2>/dev/null || true
+        find bin/ -name "Packages.gz" -delete 2>/dev/null || true
+        find bin/ -name "Packages.manifest" -delete 2>/dev/null || true
+
+        success "Stale kmod packages and index cleaned — kernel will be rebuilt cleanly"
+        # ────────────────────────────────────────────────────────────────
+
+        info "Running make defconfig && make -j$(nproc)..."
         
         # Execute compilation in the current directory as the normal user
         # We use 'sudo -u' instead of 'su' for better compatibility with sudo environments
@@ -319,8 +344,26 @@ collect_output() {
         error "No output found in: ${ophub_out}"
     fi
 
-    cp -v "${ophub_out}"/*.img.gz "${OUTPUT_DIR}/" 2>/dev/null || true
-    cp -v "${ophub_out}"/*.img    "${OUTPUT_DIR}/" 2>/dev/null || true
+    local DATE_TAG
+    DATE_TAG=$(date +%Y.%m.%d)
+
+    local PROFILE_TAG="${PROFILE:-standard}"
+    # Sanitize kernel version for filename: 6.1.y → 6.1, 6.1.167 → 6.1.167
+    local KERNEL_TAG
+    KERNEL_TAG=$(echo "${KERNEL_VERSION}" | sed 's/\.y//' | cut -d_ -f1)
+
+    # Copy and rename: openwrt_amlogic_* → TIrtayana-B860H-{profile}-k{kernel}-{date}.img.gz
+    for f in "${ophub_out}/"*.img.gz "${ophub_out}/"*.img; do
+        [ -f "$f" ] || continue
+        local EXT="${f##*.}"
+        # Preserve the inner extension (.img.gz vs .img)
+        if [[ "$f" == *.img.gz ]]; then
+            local TARGET="${OUTPUT_DIR}/TIrtayana-B860H-${PROFILE_TAG}-k${KERNEL_TAG}-${DATE_TAG}.img.gz"
+        else
+            local TARGET="${OUTPUT_DIR}/TIrtayana-B860H-${PROFILE_TAG}-k${KERNEL_TAG}-${DATE_TAG}.img"
+        fi
+        cp -v "$f" "$TARGET"
+    done
 
     echo ""
     success "Firmware is available in: ${OUTPUT_DIR}/"
@@ -347,13 +390,13 @@ print_install_guide() {
     echo -e "     User: ${YELLOW}root${NC} | Pass: ${YELLOW}TIudayana${NC}"
     echo ""
     echo -e "  ${BOLD}4. Install to eMMC (Optional)${NC}"
-    echo -e "     System → ${YELLOW}Amlogic Service${NC} → ${YELLOW}Install OpenWrt${NC}"
+    echo -e "     System → ${YELLOW}TIrtayana Service${NC} → ${YELLOW}Install OpenWrt${NC}"
     echo -e "     Select board: ${CYAN}B860H${NC} → click Install"
     echo ""
     echo -e "  ${BOLD}5. Backup Android ROM (Before installing to eMMC)${NC}"
-    echo -e "     Open terminal: ${YELLOW}openwrt-ddbr${NC} → type ${YELLOW}b${NC} to backup"
+    echo -e "     System → ${YELLOW}TIrtayana Service${NC} → ${YELLOW}Backup / Restore ROM${NC}"
     echo ""
-    echo -e "  ${BOLD}LuCI Theme:${NC} ${CYAN}Argon (Modern Dark Theme)${NC}"
+    echo -e "  ${BOLD}LuCI Theme:${NC} ${CYAN}Argon Tirtayana (Custom Gold Theme)${NC}"
     echo -e "  Theme config: System → ${YELLOW}Argon Config${NC}"
     echo ""
 }

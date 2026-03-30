@@ -1,2 +1,6 @@
-uci set luci.main.mediaurlbase='/luci-static/argon'
+#!/bin/sh
+# Set Tirtayana custom Argon theme as default LuCI theme
+uci -q set luci.main.mediaurlbase='/luci-static/argon-tirtayana'
+uci -q set luci.themes.ArgonTirtayana='/luci-static/argon-tirtayana'
 uci commit luci
+exit 0

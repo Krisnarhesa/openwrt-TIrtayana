@@ -35,5 +35,4 @@ git-src
 .cproject
 .ccache
 .vscode*
-*.docx
-*.txt
+/out/b860h/
