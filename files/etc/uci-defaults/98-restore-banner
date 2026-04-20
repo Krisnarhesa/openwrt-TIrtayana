@@ -1,4 +1,12 @@
-# Restore TIrtayana banner after ophub packaging
+#!/bin/sh
+# =============================================================
+# TIrtayana: First-boot initialization
+# 1. Restore custom banner (ophub overwrites it)
+# 2. Fix cpustat Perl modules missing in OpenWrt musl builds
+# 3. Apply hostname from UCI system config
+# =============================================================
+
+# ── 1. Restore TIrtayana banner ───────────────────────────────
 cat > /etc/banner << 'BANNER'
 ████████╗██╗██████╗ ████████╗ █████╗ ██╗   ██╗ █████╗ ███╗   ██╗ █████╗
 ╚══██╔══╝██║██╔══██╗╚══██╔══╝██╔══██╗╚██╗ ██╔╝██╔══██╗████╗  ██║██╔══██╗
@@ -7,8 +15,83 @@ cat > /etc/banner << 'BANNER'
    ██║   ██║██║  ██║   ██║   ██║  ██║   ██║   ██║  ██║██║ ╚████║██║  ██║
    ╚═╝   ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝
 ----------------------------------------------------------------------------
-                  Welcome to TIRTAYANA Custom Firmware
-                 Teknologi Informasi Universitas Udayana
-                          Powered by OpenWrt
+              Welcome to TIRTAYANA Custom Firmware
+             Teknologi Informasi Universitas Udayana
+                       Powered by OpenWrt
 ----------------------------------------------------------------------------
 BANNER
+
+# ── 2. Fix Perl strict/warnings/utf8 missing ──────────────────
+# OpenWrt ships a stripped Perl without core modules.
+# We create minimal stubs so cpustat doesn't crash on login.
+PERL_LIB_DIR="/usr/lib/perl5/5.40"
+mkdir -p "${PERL_LIB_DIR}"
+
+if [ ! -f "${PERL_LIB_DIR}/strict.pm" ]; then
+    cat > "${PERL_LIB_DIR}/strict.pm" << 'PERL'
+package strict;
+sub import   {}
+sub unimport {}
+1;
+PERL
+fi
+
+if [ ! -f "${PERL_LIB_DIR}/warnings.pm" ]; then
+    cat > "${PERL_LIB_DIR}/warnings.pm" << 'PERL'
+package warnings;
+sub import   {}
+sub unimport {}
+1;
+PERL
+fi
+
+if [ ! -f "${PERL_LIB_DIR}/utf8.pm" ]; then
+    cat > "${PERL_LIB_DIR}/utf8.pm" << 'PERL'
+package utf8;
+sub import   {}
+sub unimport {}
+1;
+PERL
+fi
+
+mkdir -p "${PERL_LIB_DIR}/Time"
+if [ ! -f "${PERL_LIB_DIR}/Time/HiRes.pm" ]; then
+    cat > "${PERL_LIB_DIR}/Time/HiRes.pm" << 'PERL'
+package Time::HiRes;
+sub import {
+    my $pkg = shift;
+    my $callpkg = caller(0);
+    foreach my $sym (@_) {
+        no strict 'refs';
+        *{"${callpkg}::$sym"} = \&{"Time::HiRes::$sym"};
+    }
+}
+sub usleep { CORE::sleep(1); }
+sub gettimeofday { return (time(), 0); }
+sub tv_interval { return 0; }
+sub sleep { CORE::sleep($_[0] || 1); }
+sub time { return CORE::time(); }
+1;
+PERL
+fi
+
+mkdir -p "${PERL_LIB_DIR}/File"
+if [ ! -f "${PERL_LIB_DIR}/File/Glob.pm" ]; then
+    cat > "${PERL_LIB_DIR}/File/Glob.pm" << 'PERL'
+package File::Glob;
+require Exporter;
+our @ISA = qw(Exporter);
+our @EXPORT = qw(glob);
+sub bsd_glob { return CORE::glob($_[0]); }
+sub glob     { return CORE::glob($_[0]); }
+sub import   { File::Glob->export_to_level(1, @_); }
+1;
+PERL
+fi
+
+# ── 3. Force hostname via UCI (safety net) ────────────────────
+uci -q set system.@system[0].hostname='TIrtayana' 2>/dev/null || true
+uci -q commit system 2>/dev/null || true
+echo 'TIrtayana' > /proc/sys/kernel/hostname 2>/dev/null || true
+
+exit 0

@@ -181,10 +181,10 @@ CONFIG_PACKAGE_luci-mod-system=y
 CONFIG_PACKAGE_luci-app-argon-config=y
 CONFIG_PACKAGE_luci-app-firewall=y
 CONFIG_PACKAGE_luci-app-package-manager=y
-CONFIG_PACKAGE_luci-compat=y
-CONFIG_PACKAGE_luci-theme-argon-tirtayana=y
+CONFIG_PACKAGE_luci-theme-argon=y
 CONFIG_PACKAGE_luci-theme-openwrt-2020=y
-CONFIG_PACKAGE_luci-app-tirtayana-installer=y
+# CONFIG_PACKAGE_luci-app-tirtayana-installer is not set  # Disabled: replaced by ophub luci-app-amlogic
+CONFIG_PACKAGE_luci-app-amlogic=y
 CONFIG_PACKAGE_luci-proto-ipv6=y
 CONFIG_PACKAGE_luci-proto-ppp=y
 CONFIG_PACKAGE_uhttpd=y
@@ -205,3 +205,21 @@ CONFIG_PACKAGE_coreutils=y
 CONFIG_PACKAGE_htop=y
 CONFIG_PACKAGE_bash=y
 CONFIG_PACKAGE_perl=y
+CONFIG_PACKAGE_perlbase-file=y
+CONFIG_PACKAGE_iproute2=y
+CONFIG_PACKAGE_iptables-nft=y
+
+# === Basic LuCI Apps (Essential OpenWrt Features) ===
+CONFIG_PACKAGE_luci-lib-ipkg=y
+CONFIG_PACKAGE_luci-app-ttyd=y
+CONFIG_PACKAGE_luci-app-upnp=y
+CONFIG_PACKAGE_luci-app-ddns=y
+CONFIG_PACKAGE_luci-app-nlbwmon=y
+CONFIG_PACKAGE_luci-app-wol=y
+CONFIG_PACKAGE_luci-app-acl=y
+CONFIG_PACKAGE_luci-app-uhttpd=y
+CONFIG_PACKAGE_ttyd=y
+CONFIG_PACKAGE_miniupnpd-nftables=y
+CONFIG_PACKAGE_ddns-scripts=y
+CONFIG_PACKAGE_nlbwmon=y
+CONFIG_PACKAGE_etherwake=y
