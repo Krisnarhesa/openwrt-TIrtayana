@@ -1,0 +1,255 @@
+/*
+ * TIrtayana Gold Accent Theme
+ * For Argon Theme v2.3.1
+ */
+
+/* ======================================================
+   ROOT — Override argon blue defaults with gold
+   ====================================================== */
+
+:root {
+    --primary: #c8a030 !important;
+    --dark-primary: #9e7800 !important;
+    --bar-bg: #c8a030 !important;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bar-bg: #9e7800 !important;
+    }
+}
+
+/* ======================================================
+   LOGIN — FORM
+   ====================================================== */
+
+.login-form .input-container { margin: 24px 0 !important; }
+.login-form .input-group { margin-bottom: 18px !important; }
+
+.login-form .cbi-input-user,
+.login-form .cbi-input-password,
+.login-form input[type="text"],
+.login-form input[type="password"] {
+    border: 1px solid rgba(200,160,48,0.35) !important;
+    border-radius: 8px !important;
+    padding: 12px 16px 12px 40px !important;
+    font-size: 14px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    height: auto !important;
+    line-height: 1.4 !important;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.login-form input:focus {
+    border-color: #c8a030 !important;
+    box-shadow: 0 0 0 3px rgba(200,160,48,0.15) !important;
+    outline: none !important;
+}
+
+.login-container .brand-text,
+.login-container .brand {
+    color: #c8a030 !important;
+    font-weight: 600;
+}
+
+.login-form .cbi-button-apply,
+.login-form .cbi-button {
+    background: linear-gradient(135deg, #9e7800, #c8a030) !important;
+    border: none !important;
+    color: #fff !important;
+    border-radius: 10px !important;
+    font-weight: 600;
+    letter-spacing: 2px;
+    padding: 13px 24px !important;
+    margin-top: 8px !important;
+    transition: all 0.3s;
+}
+
+.login-form .cbi-button-apply:hover {
+    background: linear-gradient(135deg, #c8a030, #d4a017) !important;
+    box-shadow: 0 6px 24px rgba(200,160,48,0.25);
+    transform: translateY(-1px);
+}
+
+/* ======================================================
+   LOGIN — INFO PANEL
+   English, concise, all firmware info visible
+   ====================================================== */
+
+.login-container::after {
+    content:
+        "TIrtayana Firmware"
+        "\A Custom OpenWrt for ZTE B860H"
+        "\A"
+        "\A ──────────────────────────────────────────────────────────────────────────────"
+        "\A"
+        "\A  Standard Edition          Full-featured router firmware with LuCI, DDNS,"
+        "\A                            UPnP, WoL, bandwidth monitor, and TTYD."
+        "\A"
+        "\A  Education Edition         Standard + Docker engine and FreeRADIUS3"
+        "\A                            for campus network labs and research."
+        "\A"
+        "\A  Minimal Edition           Headless, no GUI. Ideal for embedded deployments."
+        "\A"
+        "\A ──────────────────────────────────────────────────────────────────────────────"
+        "\A"
+        "\A  Platform    ZTE B860H (S905X)  ·  ARM Cortex-A53 (AArch64)"
+        "\A  Firmware    OpenWrt 24.10  ·  Kernel 6.1"
+        "\A  Source      github.com/Krisnarhesa/openwrt-TIrtayana";
+    position: fixed;
+    right: 24px;
+    bottom: 48px;
+    white-space: pre;
+    color: #c8a030;
+    font-family: 'Consolas', 'SF Mono', 'Menlo', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    letter-spacing: 0.3px;
+    text-align: left;
+    pointer-events: none;
+    padding: 28px 36px;
+    background: rgba(0,0,0,0.75);
+    border: 1px solid rgba(200,160,48,0.12);
+    border-radius: 14px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    z-index: 20;
+}
+
+@media (max-width: 1024px) {
+    .login-container::after { display: none !important; }
+}
+
+/* Login footer — ensure readable in both light and dark */
+.login-container footer,
+.login-container footer a,
+body.login footer,
+body.login footer a {
+    color: rgba(200,160,48,0.6) !important;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+/* ======================================================
+   SIDEBAR BRAND — argon.svg icon + "TIrtayana" text
+   ====================================================== */
+
+.sidenav-header .brand,
+.main-left .brand {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 16px 12px !important;
+    margin-bottom: 8px !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: #c8a030 !important;
+    letter-spacing: 0.5px;
+    text-decoration: none !important;
+}
+
+.sidenav-header .brand::before,
+.main-left .brand::before {
+    content: '';
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    background: url('/luci-static/argon/img/argon.svg') no-repeat center / contain;
+}
+
+.topbar .brand,
+.header-right .brand {
+    color: #c8a030 !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+.topbar .brand::before,
+.header-right .brand::before {
+    content: '';
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    background: url('/luci-static/argon/img/argon.svg') no-repeat center / contain;
+}
+
+/* ======================================================
+   FOOTER — Styled to match gold palette
+   ====================================================== */
+
+footer, footer a {
+    color: rgba(200,160,48,0.7) !important;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+
+footer a:hover {
+    color: #c8a030 !important;
+}
+
+/* ======================================================
+   GOLD ACCENTS
+   ====================================================== */
+
+.header, .navbar, .main-top, .topbar {
+    background: linear-gradient(135deg, #9e7800, #c8a030) !important;
+}
+
+.cbi-section h3, fieldset legend, .panel-title, h2 {
+    color: #c8a030 !important;
+    font-weight: 500;
+}
+
+table th, .table .tr.cbi-section-table-titles .th {
+    color: rgba(200,160,48,0.7) !important;
+    border-bottom: 1px solid rgba(200,160,48,0.07);
+}
+
+.cbi-button-apply, .cbi-button-save, .cbi-button-positive {
+    background: linear-gradient(135deg, #9e7800, #b88d00) !important;
+    border: 1px solid rgba(200,160,48,0.2) !important;
+    color: #fff !important;
+    border-radius: 6px;
+}
+
+.cbi-button-apply:hover, .cbi-button-save:hover {
+    background: linear-gradient(135deg, #b88d00, #c8a030) !important;
+}
+
+.cbi-button-reset, .cbi-button-neutral {
+    border: 1px solid rgba(200,160,48,0.15) !important;
+    color: rgba(200,160,48,0.5) !important;
+    background: transparent !important;
+}
+
+.cbi-progressbar > div {
+    background: linear-gradient(90deg, #9e7800, #c8a030) !important;
+}
+
+/*
+ * Sidebar text — Force Light mode fix.
+ * Confirmed selectors: a.menu (parent), a.food (sub-item)
+ */
+
+/* All sidebar text — force dark */
+.main-left a.menu,
+.main-left a.food {
+    color: #333 !important;
+}
+
+/* Active parent — white on gold background */
+.main-left li.slide.active > a.menu {
+    color: #fff !important;
+    border-left-color: #c8a030 !important;
+}
+
+/* Active sub-item — dark brown bold */
+.main-left a.food.active {
+    color: #8b6914 !important;
+    font-weight: 600 !important;
+}
+
