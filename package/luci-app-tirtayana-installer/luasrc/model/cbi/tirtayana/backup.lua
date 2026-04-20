@@ -12,7 +12,7 @@ s.anonymous = true
 s.addremove = false
 
 o = s:option(Button, "_backup", translate("Backup Android ROM"))
-o.inputtitle = translate("💾 Backup Android ROM to USB/SD")
+o.inputtitle = translate("Backup Android ROM to USB/SD")
 o.inputstyle = "apply"
 o.write = function(self, section)
 	luci.http.redirect(luci.dispatcher.build_url(
@@ -24,7 +24,7 @@ o2 = s:option(DummyValue, "_backup_info", translate(""))
 o2.rawhtml = true
 o2.value = [[
 <div style="background:#d4edda;border-left:4px solid #28a745;padding:12px 16px;border-radius:4px;margin-top:10px;margin-bottom:20px;">
-  <strong>✅ Backup Process:</strong><br>
+  <strong>Backup Process:</strong><br>
   <ul style="margin:8px 0 0 16px;">
     <li>Creates a full backup of your Android eMMC ROM image</li>
     <li>Backup file is saved to the current boot device (USB/SD card)</li>

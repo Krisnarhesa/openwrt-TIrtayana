@@ -21,7 +21,7 @@ s2.anonymous = true
 s2.addremove = false
 
 o2 = s2:option(Button, "_update", translate("Update Kernel"))
-o2.inputtitle = translate("🔄 Update Kernel Now")
+o2.inputtitle = translate("Update Kernel Now")
 o2.inputstyle = "apply"
 o2.write = function(self, section)
 	local kernel = m:get("tirtayana", "kernel") or "6.1.y"
@@ -34,7 +34,7 @@ o3 = s2:option(DummyValue, "_info2", translate(""))
 o3.rawhtml = true
 o3.value = [[
 <div style="background:#d1ecf1;border-left:4px solid #17a2b8;padding:12px 16px;border-radius:4px;margin-top:10px;">
-  <strong>ℹ️ Kernel Update Notes:</strong><br>
+  <strong>Kernel Update Notes:</strong><br>
   <ul style="margin:8px 0 0 16px;">
     <li>Your configuration and packages are preserved during a kernel update</li>
     <li>Use <strong>5.15.y</strong> for maximum stability on S905X devices</li>

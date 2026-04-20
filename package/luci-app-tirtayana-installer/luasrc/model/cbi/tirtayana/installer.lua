@@ -29,7 +29,7 @@ s2.anonymous = true
 s2.addremove = false
 
 o2 = s2:option(Button, "_install", translate("Install OpenWrt to eMMC"))
-o2.inputtitle = translate("⚡ Install to eMMC")
+o2.inputtitle = translate("Install to eMMC")
 o2.inputstyle = "apply"
 o2.write = function(self, section)
 	local board = m:get("tirtayana", "board") or "B860H"
@@ -42,7 +42,7 @@ o3 = s2:option(DummyValue, "_info", translate(""))
 o3.rawhtml = true
 o3.value = [[
 <div style="background:#fff3cd;border-left:4px solid #cc8800;padding:12px 16px;border-radius:4px;margin-top:10px;">
-  <strong>⚠️ Before Installing:</strong><br>
+  <strong>Before Installing:</strong><br>
   <ul style="margin:8px 0 0 16px;">
     <li>Back up your Android ROM first: run <code>openwrt-ddbr</code> in the Backup tab</li>
     <li>Make sure the device is running from USB/SD, not eMMC</li>

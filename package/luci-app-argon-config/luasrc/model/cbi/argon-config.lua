@@ -1,3 +1,4 @@
+local nixio = require 'nixio'
 local nxfs = require 'nixio.fs'
 local wa = require 'luci.tools.webadmin'
 local opkg = require 'luci.model.ipkg'
@@ -50,9 +51,10 @@ local transparency_sets = {
 }
 
 -- [[ 模糊设置 ]]--
+-- Theme configuration form
 br = SimpleForm('config', translate('Argon Config'), translate('Here you can set the blur and transparency of the login page of argon theme, and manage the background pictures and videos.[Chrome is recommended]'))
 br.reset = false
-br.submit = false
+br.submit = translate('Save Changes')
 s = br:section(SimpleSection) 
 
 o = s:option(ListValue, 'bing_background', translate('Wallpaper Source'))
@@ -71,27 +73,21 @@ o.description = translate('You can choose Theme color mode here')
 
 o = s:option(Value, 'primary', translate('[Light mode] Primary Color'), translate('A HEX Color ; ( Default: #5e72e4 )'))
 o.default = primary
-o.datatype = ufloat
 o.rmempty = false
-
-
 
 o = s:option(ListValue, 'transparency', translate('[Light mode] Transparency'), translate('0 transparent - 1 opaque ; ( Suggest: transparent: 0 or translucent preset: 0.5 )'))
 for _, v in ipairs(transparency_sets) do
     o:value(v)
 end
 o.default = blur_opacity
-o.datatype = ufloat
 o.rmempty = false
 
 o = s:option(Value, 'blur', translate('[Light mode] Frosted Glass Radius'), translate('Larger value will more blurred ; ( Suggest:  clear: 1 or blur preset: 10 )'))
 o.default = blur_radius
-o.datatype = ufloat
 o.rmempty = false
 
 o = s:option(Value, 'dark_primary', translate('[Dark mode] Primary Color'), translate('A HEX Color ; ( Default: #483d8b )'))
 o.default = dark_primary
-o.datatype = ufloat
 o.rmempty = false
 
 o = s:option(ListValue, 'transparency_dark', translate('[Dark mode] Transparency'), translate('0 transparent - 1 opaque ; ( Suggest: Black translucent preset: 0.5 )'))
@@ -99,20 +95,14 @@ for _, v in ipairs(transparency_sets) do
     o:value(v)
 end
 o.default = blur_opacity_dark
-o.datatype = ufloat
 o.rmempty = false
 
 o = s:option(Value, 'blur_dark', translate('[Dark mode] Frosted Glass Radius'), translate('Larger value will more blurred ; ( Suggest:  clear: 1 or blur preset: 10 )'))
 o.default = blur_radius_dark
-o.datatype = ufloat
 o.rmempty = false
 
-o = s:option(Button, 'save', translate('Save Changes'))
-o.inputstyle = 'reload'
-
 function br.handle(self, state, data)
-    if (state == FORM_VALID and data.blur ~= nil and data.blur_dark ~= nil and data.transparency ~= nil and data.transparency_dark ~= nil and data.mode ~= nil) then
-        nxfs.writefile('/tmp/aaa', data)
+    if state == FORM_VALID then
         for key, value in pairs(data) do
             uci:set('argon','@global[0]',key,value)
         end 
