@@ -630,15 +630,15 @@ jobs:
               ORIG_REV=$(sudo grep "DISTRIB_REVISION=" "${ROOT_MNT}/etc/openwrt_release" | cut -d"'" -f2)
               ORIG_TARGET=$(sudo grep "DISTRIB_TARGET=" "${ROOT_MNT}/etc/openwrt_release" | cut -d"'" -f2)
               ORIG_ARCH=$(sudo grep "DISTRIB_ARCH=" "${ROOT_MNT}/etc/openwrt_release" | cut -d"'" -f2)
-              sudo tee "${ROOT_MNT}/etc/openwrt_release" > /dev/null <<EOF
-DISTRIB_ID='TIrtayana'
-DISTRIB_RELEASE='${ORIG_VER:-24.10}'
-DISTRIB_REVISION='${ORIG_REV:-custom}'
-DISTRIB_TARGET='${ORIG_TARGET:-armsr/armv8}'
-DISTRIB_ARCH='${ORIG_ARCH:-aarch64_generic}'
-DISTRIB_DESCRIPTION='TIrtayana ${ORIG_VER:-24.10} (${ORIG_REV:-custom})'
-DISTRIB_TAINTS=''
-EOF
+              {
+                echo "DISTRIB_ID='TIrtayana'"
+                echo "DISTRIB_RELEASE='${ORIG_VER:-24.10}'"
+                echo "DISTRIB_REVISION='${ORIG_REV:-custom}'"
+                echo "DISTRIB_TARGET='${ORIG_TARGET:-armsr/armv8}'"
+                echo "DISTRIB_ARCH='${ORIG_ARCH:-aarch64_generic}'"
+                echo "DISTRIB_DESCRIPTION='TIrtayana ${ORIG_VER:-24.10} (${ORIG_REV:-custom})'"
+                echo "DISTRIB_TAINTS=''"
+              } | sudo tee "${ROOT_MNT}/etc/openwrt_release" > /dev/null
               echo "[OK] Firmware branded as TIrtayana"
             fi
 
@@ -718,34 +718,34 @@ EOF
             done
 
             # 4. Force LuCI to use base argon theme
-            sudo tee "${ROOT_MNT}/etc/config/luci" > /dev/null <<'LUCI_EOF'
-config core 'main'
-	option lang 'auto'
-	option mediaurlbase '/luci-static/argon'
-	option resourcebase '/luci-static/resources'
-	option ubuspath '/ubus/'
-
-config extern 'flash_keep'
-	option uci '/etc/config/'
-	option dropbear '/etc/dropbear/'
-
-config internal 'sauth'
-	option sessionpath '/tmp/luci-sessions'
-	option sessiontime '3600'
-
-config internal 'ccache'
-	option enable '1'
-
-config internal 'apply'
-	option rollback '90'
-	option holdoff '4'
-	option timeout '5'
-	option display '1.5'
-
-config internal 'themes'
-	option Argon '/luci-static/argon'
-	option OpenWrt2020 '/luci-static/openwrt2020'
-LUCI_EOF
+            {
+              echo "config core 'main'"
+              echo "	option lang 'auto'"
+              echo "	option mediaurlbase '/luci-static/argon'"
+              echo "	option resourcebase '/luci-static/resources'"
+              echo "	option ubuspath '/ubus/'"
+              echo ""
+              echo "config extern 'flash_keep'"
+              echo "	option uci '/etc/config/'"
+              echo "	option dropbear '/etc/dropbear/'"
+              echo ""
+              echo "config internal 'sauth'"
+              echo "	option sessionpath '/tmp/luci-sessions'"
+              echo "	option sessiontime '3600'"
+              echo ""
+              echo "config internal 'ccache'"
+              echo "	option enable '1'"
+              echo ""
+              echo "config internal 'apply'"
+              echo "	option rollback '90'"
+              echo "	option holdoff '4'"
+              echo "	option timeout '5'"
+              echo "	option display '1.5'"
+              echo ""
+              echo "config internal 'themes'"
+              echo "	option Argon '/luci-static/argon'"
+              echo "	option OpenWrt2020 '/luci-static/openwrt2020'"
+            } | sudo tee "${ROOT_MNT}/etc/config/luci" > /dev/null
             echo "[OK] LuCI forced to base argon theme"
 
             # 6. Fix extlinux.conf.bak → extlinux.conf
