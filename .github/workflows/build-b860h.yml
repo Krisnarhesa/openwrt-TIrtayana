@@ -52,73 +52,74 @@ on:
 env:
   TZ: Asia/Jakarta
   BUILDER_NAME: TIrtayana
-  BOARD: s905x
+  BOARD: s905x-b860h
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
+  DTB_FILE: meson-gxl-s905x-b860h.dtb
 
 jobs:
   # ────────────────────────────────────────────
   # JOB 0: System Check & Dependency Guide
   # ────────────────────────────────────────────
   system_check:
-    name: 🖥️ System Check & Install Guide
+    name: System Check & Install Guide
     runs-on: ubuntu-22.04
     outputs:
       os_ready: ${{ steps.check.outputs.os_ready }}
     steps:
-      - name: 🔍 Detect OS & Check Dependencies
+      - name: Detect OS & Check Dependencies
         id: check
         run: |
           echo "======================================================"
           echo "  TIrtayana OpenWrt — Build System Requirement Check  "
           echo "======================================================"
           echo ""
-          echo "📌 OS Information:"
+          echo "OS Information:"
           lsb_release -a 2>/dev/null || cat /etc/os-release
           echo ""
-          echo "💻 CPU   : $(nproc) cores available"
-          echo "💾 RAM   : $(free -h | awk '/Mem:/{print $2}') total"
-          echo "📦 Disk  : $(df -h / | awk 'NR==2{print $4}') free"
+          echo "CPU   : $(nproc) cores available"
+          echo "RAM   : $(free -h | awk '/Mem:/{print $2}') total"
+          echo "Disk  : $(df -h / | awk 'NR==2{print $4}') free"
           echo ""
 
           # ── Check required tools ──
           MISSING=()
           TOOLS=(git make gcc g++ flex bison gawk wget unzip python3 rsync ccache)
-          echo "🔧 Checking required tools:"
+          echo "Checking required tools:"
           for t in "${TOOLS[@]}"; do
             if command -v "$t" &>/dev/null; then
-              echo "  ✅ $t  →  $(command -v $t)"
+              echo "  [OK] $t  →  $(command -v $t)"
             else
-              echo "  ❌ $t  →  NOT FOUND"
+              echo "  [MISSING] $t  →  NOT FOUND"
               MISSING+=("$t")
             fi
           done
 
           # ── Check pahole / dwarves ──
           echo ""
-          echo "🔍 Checking pahole (dwarves):"
+          echo "Checking pahole (dwarves):"
           if command -v pahole &>/dev/null; then
             PAHOLE_VER=$(pahole --version 2>&1 | grep -oP '\d+\.\d+' | head -1)
-            echo "  ✅ pahole $PAHOLE_VER found"
+            echo "  [OK] pahole $PAHOLE_VER found"
             MAJOR=$(echo $PAHOLE_VER | cut -d. -f1)
             MINOR=$(echo $PAHOLE_VER | cut -d. -f2)
             if [ "$MAJOR" -lt 1 ] || { [ "$MAJOR" -eq 1 ] && [ "$MINOR" -lt 16 ]; }; then
-              echo "  ⚠️  pahole $PAHOLE_VER is older than 1.16 — may cause build errors with kernel 6.6"
+              echo "  [WARN] pahole $PAHOLE_VER is older than 1.16 — may cause build errors with kernel 6.6"
               echo "     Fix: sudo apt install --reinstall dwarves"
             fi
           else
-            echo "  ❌ pahole NOT FOUND"
+            echo "  [MISSING] pahole NOT FOUND"
             MISSING+=("dwarves")
           fi
 
           # ── Check Python3 modules ──
           echo ""
-          echo "🐍 Checking Python3 modules:"
+          echo "Checking Python3 modules:"
           for mod in distutils setuptools; do
             if python3 -c "import $mod" 2>/dev/null; then
-              echo "  ✅ python3-$mod"
+              echo "  [OK] python3-$mod"
             else
-              echo "  ⚠️  python3-$mod not found (non-fatal on Ubuntu 24.04+)"
+              echo "  [WARN] python3-$mod not found (non-fatal on Ubuntu 24.04+)"
             fi
           done
 
@@ -126,16 +127,16 @@ jobs:
           echo ""
           echo "======================================================"
           if [ ${#MISSING[@]} -eq 0 ]; then
-            echo "✅ All required dependencies are present. Build is ready!"
+            echo "[OK] All required dependencies are present. Build is ready!"
             echo "os_ready=true" >> $GITHUB_OUTPUT
           else
-            echo "❌ Missing dependencies: ${MISSING[*]}"
+            echo "[ERROR] Missing dependencies: ${MISSING[*]}"
             
             if [ "${GITHUB_ACTIONS}" == "true" ]; then
-                echo "🤖 CI Environment detected. Attempting to install missing tools natively..."
+                echo "CI Environment detected. Attempting to install missing tools natively..."
                 sudo apt-get update -y -qq
                 sudo apt-get install -y -qq "${MISSING[@]}" || true
-                echo "✅ Installation attempt finished. Proceeding with build..."
+                echo "[OK] Installation attempt finished. Proceeding with build..."
                 echo "os_ready=true" >> $GITHUB_OUTPUT
                 exit 0
             fi
@@ -174,7 +175,7 @@ jobs:
                 echo "      xmlto xxd zlib1g-dev dwarves"
                 echo ""
                 if [[ "$VERSION_ID" == "24.04" ]]; then
-                  echo "  ⚠️  Note for Ubuntu 24.04:"
+                  echo "  [WARN] Note for Ubuntu 24.04:"
                   echo "      The package 'python3-distutils' has been removed since Ubuntu 24.04."
                   echo "      Use 'python3-setuptools' as a replacement (already included above)."
                   echo ""
@@ -270,26 +271,26 @@ jobs:
             exit 1
           fi
 
-      - name: 📋 Show Build Environment Summary
+      - name: Show Build Environment Summary
         run: |
           echo "======================================================"
           echo "  Build Environment Summary"
           echo "======================================================"
-          echo "🔧 gcc    : $(gcc --version | head -1)"
-          echo "🔧 g++    : $(g++ --version | head -1)"
-          echo "🔧 make   : $(make --version | head -1)"
-          echo "🔧 python : $(python3 --version)"
-          echo "🔧 git    : $(git --version)"
-          echo "🔧 pahole : $(pahole --version 2>&1 | head -1)"
-          echo "🔧 ccache : $(ccache --version 2>/dev/null | head -1 || echo 'not installed')"
-          echo "🔧 nproc  : $(nproc) cores available"
+          echo "gcc    : $(gcc --version | head -1)"
+          echo "g++    : $(g++ --version | head -1)"
+          echo "make   : $(make --version | head -1)"
+          echo "python : $(python3 --version)"
+          echo "git    : $(git --version)"
+          echo "pahole : $(pahole --version 2>&1 | head -1)"
+          echo "ccache : $(ccache --version 2>/dev/null | head -1 || echo 'not installed')"
+          echo "nproc  : $(nproc) cores available"
           echo "======================================================"
 
   # ────────────────────────────────────────────
   # JOB 1: Prepare Build Matrix
   # ────────────────────────────────────────────
   prepare_matrix:
-    name: 🔍 Prepare Matrix
+    name: Prepare Matrix
     needs: system_check
     runs-on: ubuntu-22.04
     outputs:
@@ -308,7 +309,7 @@ jobs:
   # JOB 2: Build OpenWrt Generic ARM64 Rootfs
   # ────────────────────────────────────────────
   build:
-    name: 🔨 Build OpenWrt (${{ matrix.profile }})
+    name: Build OpenWrt (${{ matrix.profile }})
     needs: [system_check, prepare_matrix]
     runs-on: ubuntu-22.04
     strategy:
@@ -318,17 +319,17 @@ jobs:
     outputs:
       COMPILE_STATUS: ${{ steps.compile.outputs.COMPILE_STATUS }}
     steps:
-      - name: 📥 Checkout Repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: 🕐 Set Timezone
+      - name: Set Timezone
         run: |
           sudo timedatectl set-timezone "$TZ"
           echo "Build started at: $(date '+%Y-%m-%d %H:%M:%S %Z')"
 
-      - name: 💾 Free Disk Space
+      - name: Free Disk Space
         run: |
           echo "=== Disk space before cleanup ==="
           df -hT
@@ -338,7 +339,7 @@ jobs:
           echo "=== Disk space after cleanup ==="
           df -hT
 
-      - name: 🗄️ Cache Downloaded Packages
+      - name: Cache Downloaded Packages
         uses: actions/cache@v4
         with:
           path: dl
@@ -346,7 +347,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-openwrt-dl-
 
-      - name: 📦 Install Build Dependencies
+      - name: Install Build Dependencies
         run: |
           sudo apt-get update -y
           sudo apt-get install -y \
@@ -363,13 +364,15 @@ jobs:
             squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip \
             vim wget xmlto xxd zlib1g-dev dwarves
 
-      - name: 🔧 Update Feeds & Install Packages
+      - name: Update Feeds & Install Packages
         run: |
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          echo "✅ Feeds updated and installed"
+          # Also ensure luci-app-amlogic from ophub is installed
+          ./scripts/feeds install luci-app-amlogic 2>/dev/null || true
+          echo "[OK] Feeds updated and installed"
 
-      - name: ⚙️ Load .config
+      - name: Load .config
         run: |
           CONFIG_TARGET=".config.${{ matrix.profile }}"
           if [ -e "$CONFIG_TARGET" ]; then
@@ -395,30 +398,30 @@ jobs:
       #   armsr/armv8/config-6.6 → CONFIG_ARM64_VA_BITS_48=y + CONFIG_NO_HZ_IDLE=y
       # These are fixed permanently in the repo files. This step verifies they
       # are clean and patches any residual conflicts just in case.
-      - name: 🔧 Fix Kernel Config Conflicts
+      - name: Fix Kernel Config Conflicts
         run: |
           GENERIC_CFG="target/linux/generic/config-6.6"
           ARMSR_CFG="target/linux/armsr/config-6.6"
 
           echo "=== Verifying generic/config-6.6 ==="
           if grep -qE "^# CONFIG_ARM64_VA_BITS_48 is not set|^# CONFIG_NO_HZ_IDLE is not set" "$GENERIC_CFG"; then
-            echo "  ⚠️  Found residual conflicts — patching..."
+            echo "  [WARN] Found residual conflicts — patching..."
             sed -i "/^# CONFIG_ARM64_VA_BITS_48 is not set/d" "$GENERIC_CFG"
             sed -i "/^# CONFIG_NO_HZ_IDLE is not set/d"       "$GENERIC_CFG"
-            echo "  ✅ Patched generic/config-6.6"
+            echo "  [OK] Patched generic/config-6.6"
           else
-            echo "  ✅ generic/config-6.6 is clean"
+            echo "  [OK] generic/config-6.6 is clean"
           fi
 
           echo ""
           echo "=== Verifying armsr/config-6.6 ==="
           if grep -qE "^CONFIG_ARM64_VA_BITS=39|^CONFIG_ARM64_VA_BITS_39=y" "$ARMSR_CFG"; then
-            echo "  ⚠️  Found residual VA_BITS_39 entries — patching..."
+            echo "  [WARN] Found residual VA_BITS_39 entries — patching..."
             sed -i "/^CONFIG_ARM64_VA_BITS=39/d"   "$ARMSR_CFG"
             sed -i "/^CONFIG_ARM64_VA_BITS_39=y/d" "$ARMSR_CFG"
-            echo "  ✅ Patched armsr/config-6.6"
+            echo "  [OK] Patched armsr/config-6.6"
           else
-            echo "  ✅ armsr/config-6.6 is clean"
+            echo "  [OK] armsr/config-6.6 is clean"
           fi
 
           echo ""
@@ -426,47 +429,52 @@ jobs:
           grep -E "ARM64_VA_BITS_48|NO_HZ_IDLE|IOMMU_DEFAULT_PASSTHROUGH"             target/linux/armsr/armv8/config-6.6 || echo "  (not found)"
 
           make defconfig
-          echo "✅ defconfig re-applied successfully"
+          echo "[OK] defconfig re-applied successfully"
       # ───────────────────────────────────────────────────────────────
 
-      - name: 📁 Copy Custom Files
+      - name: Copy Custom Files
         run: |
           if [ -d "files" ] && [ "$(ls -A files)" ]; then
             echo "Merging files/ directory into build..."
             cp -r files/* $(pwd)/files/ 2>/dev/null || true
-            echo "✅ Custom files merged"
+            echo "[OK] Custom files merged"
           else
-            echo "ℹ️ No custom files found in files/"
+            echo "[INFO] No custom files found in files/"
           fi
 
-      - name: 🎨 Ensure Tirtayana Theme is Selected
+      - name: Ensure Tirtayana Theme is Selected
+        if: matrix.profile != 'minimal'
         run: |
-          # Double-check that the custom theme package is selected
-          # (already set in .config.* files, this is a safety net)
-          grep -q "CONFIG_PACKAGE_luci-theme-argon-tirtayana=y" .config || \
-            echo "CONFIG_PACKAGE_luci-theme-argon-tirtayana=y" >> .config
-          grep -q "CONFIG_PACKAGE_luci-app-tirtayana-installer=y" .config || \
-            echo "CONFIG_PACKAGE_luci-app-tirtayana-installer=y" >> .config
-          echo "✅ Tirtayana theme + installer confirmed in .config"
-          echo "   Theme activation is handled by: files/etc/uci-defaults/99-argon-theme"
+          # Minimal profile is CLI-only (no LuCI) per thesis Table 3.6
+          # Only inject theme packages for standard/education profiles
+          grep -q "CONFIG_PACKAGE_luci-theme-argon=y" .config || \
+            echo "CONFIG_PACKAGE_luci-theme-argon=y" >> .config
+          # luci-app-tirtayana-installer disabled: replaced by ophub luci-app-amlogic
+          # grep -q "CONFIG_PACKAGE_luci-app-tirtayana-installer=y" .config || \
+          #   echo "CONFIG_PACKAGE_luci-app-tirtayana-installer=y" >> .config
+          grep -q "CONFIG_PACKAGE_luci-compat=y" .config || \
+            echo "CONFIG_PACKAGE_luci-compat=y" >> .config
+          grep -q "CONFIG_PACKAGE_luci-lib-ipkg=y" .config || \
+            echo "CONFIG_PACKAGE_luci-lib-ipkg=y" >> .config
+          echo "[OK] Argon theme + compat + ipkg confirmed in .config"
 
-      - name: ⬇️ Download Packages
+      - name: Download Packages
         run: |
           make download -j8 V=s
           # Remove incomplete downloads
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
-          echo "✅ Packages downloaded"
+          echo "[OK] Packages downloaded"
 
-      - name: 🏗️ Compile OpenWrt Firmware
+      - name: Compile OpenWrt Firmware
         id: compile
         run: |
           echo "=== Starting compilation with $(nproc) threads ==="
           make -j$(nproc) || make -j1 || make -j1 V=s
           echo "COMPILE_STATUS=success" >> $GITHUB_OUTPUT
-          echo "✅ Compilation complete"
+          echo "[OK] Compilation complete"
 
-      - name: 📋 Show Compiled Outputs
+      - name: Show Compiled Outputs
         run: |
           echo "=== Compiled images ==="
           ls -lh bin/targets/armsr/armv8/ | grep -v "^total"
@@ -474,21 +482,21 @@ jobs:
           echo "=== Manifest ==="
           cat bin/targets/armsr/armv8/*.manifest 2>/dev/null | grep -v "^kmod\|^lib" | head -50 || true
 
-      - name: 🏷️ Generate Release Tag
+      - name: Generate Release Tag
         id: tag
         run: |
           TAG="B860H-${{ matrix.profile }}-$(date +%Y.%m.%d-%H%M)"
           echo "RELEASE_TAG=$TAG" >> $GITHUB_OUTPUT
           echo "Release tag: $TAG"
 
-      - name: 📤 Upload rootfs.tar.gz as Artifact
+      - name: Upload rootfs.tar.gz as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: openwrt-armsr-rootfs-${{ matrix.profile }}
           path: bin/targets/armsr/armv8/*-rootfs.tar.gz
           retention-days: 1
 
-      - name: 📤 Upload Build Info as Artifact
+      - name: Upload Build Info as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: build-info-${{ matrix.profile }}
@@ -502,7 +510,7 @@ jobs:
   # JOB 3: Package for B860H via ophub
   # ────────────────────────────────────────────
   package:
-    name: 📦 Package for B860H (${{ matrix.profile }})
+    name: Package for B860H (${{ matrix.profile }})
     needs: [system_check, prepare_matrix, build]
     runs-on: ubuntu-22.04
     strategy:
@@ -511,31 +519,31 @@ jobs:
         profile: ${{ fromJson(needs.prepare_matrix.outputs.profiles) }}
     if: always()
     steps:
-      - name: 📥 Download rootfs Artifact
+      - name: Download rootfs Artifact
         uses: actions/download-artifact@v4
         with:
           name: openwrt-armsr-rootfs-${{ matrix.profile }}
           path: openwrt-armsr/
 
-      - name: 🔍 Verify rootfs file
+      - name: Verify rootfs file
         run: |
           echo "=== Files available for packaging ==="
           ls -lh openwrt-armsr/
           ROOTFS=$(ls openwrt-armsr/*rootfs.tar.gz 2>/dev/null | head -1)
           if [ -z "$ROOTFS" ]; then
-            echo "❌ ERROR: rootfs.tar.gz not found!"
+            echo "[ERROR] ERROR: rootfs.tar.gz not found!"
             exit 1
           fi
-          echo "✅ Found: $ROOTFS"
+          echo "[OK] Found: $ROOTFS"
 
-      - name: 📦 Package OpenWrt for B860H using ophub
+      - name: Package OpenWrt for B860H using ophub
         uses: ophub/amlogic-s9xxx-openwrt@main
         env:
           CUSTOM_KERNEL_REPO: ${{ github.event.inputs.kernel_repo }}
         with:
           # Path to rootfs file
           openwrt_path: openwrt-armsr/*rootfs.tar.gz
-          # Board target: s905x = B860H, HG680P, etc.
+          # Board target: s905x-b860h = B860H with correct DTB
           openwrt_board: ${{ env.BOARD }}
           # Kernel version logic: if input is empty, select by profile
           # Minimal → 5.15.y | Standard → 6.1.y | Education → 6.6.y
@@ -549,7 +557,7 @@ jobs:
           # Builder name for identification
           builder_name: ${{ env.BUILDER_NAME }}_${{ matrix.profile }}
 
-      - name: 📋 Show Packaged Outputs
+      - name: Show Packaged Outputs
         run: |
           echo "=== Packaged firmware files ==="
           ls -lh ${{ env.PACKAGED_OUTPUTPATH }}/ 2>/dev/null || echo "No output found"
@@ -557,7 +565,229 @@ jobs:
           echo "Packaging date : ${{ env.PACKAGED_OUTPUTDATE }}"
           echo "Status         : ${{ env.PACKAGED_STATUS }}"
 
-      - name: 🏷️ Rename Output to TIrtayana Brand
+      - name: Patch DTB for B860H
+        if: env.PACKAGED_STATUS == 'success'
+        run: |
+          echo "=== Re-injecting TIrtayana custom files ==="
+          OUTPATH="${{ env.PACKAGED_OUTPUTPATH }}"
+
+          # CRITICAL: Ophub compresses .img → .img.gz. Decompress first.
+          for imgz in "${OUTPATH}/"*.img.gz; do
+            [ -f "$imgz" ] || continue
+            echo "Decompressing: $(basename $imgz)"
+            gunzip -f "$imgz"
+          done
+
+          for img in "${OUTPATH}/"*.img; do
+            [ -f "$img" ] || continue
+            echo "Patching: $(basename $img)"
+
+            # Mount both partitions
+            LOOP_DEV=$(sudo losetup --show -fP "$img") || { echo "[WARN] Failed to setup loop"; continue; }
+            BOOT_MNT="/tmp/b860h-boot-$$"
+            ROOT_MNT="/tmp/b860h-root-$$"
+            sudo mkdir -p "${BOOT_MNT}" "${ROOT_MNT}"
+
+            sudo mount "${LOOP_DEV}p1" "${BOOT_MNT}" 2>/dev/null || {
+              sudo losetup -d "${LOOP_DEV}"
+              echo "[WARN] Failed to mount boot partition"
+              continue
+            }
+            sudo mount -t btrfs "${LOOP_DEV}p2" "${ROOT_MNT}" 2>/dev/null || sudo mount "${LOOP_DEV}p2" "${ROOT_MNT}" 2>/dev/null || {
+              sudo umount "${BOOT_MNT}" 2>/dev/null
+              sudo losetup -d "${LOOP_DEV}"
+              echo "[WARN] Failed to mount root partition"
+              continue
+            }
+
+            # 1. Re-inject custom banner
+            if [ -f "files/etc/banner" ]; then
+              sudo cp -f files/etc/banner "${ROOT_MNT}/etc/banner"
+              echo " Install OpenWrt: System → Amlogic Service → Install OpenWrt" | sudo tee -a "${ROOT_MNT}/etc/banner" > /dev/null
+              echo " Update  OpenWrt: System → Amlogic Service → Online  Update" | sudo tee -a "${ROOT_MNT}/etc/banner" > /dev/null
+              echo " Board: s905x-b860h | DTB: ${DTB_FILE}" | sudo tee -a "${ROOT_MNT}/etc/banner" > /dev/null
+              echo " Builder: TIrtayana_${{ matrix.profile }} | Date: $(date +%Y-%m-%d)" | sudo tee -a "${ROOT_MNT}/etc/banner" > /dev/null
+              echo "───────────────────────────────────────────────────────────────────────" | sudo tee -a "${ROOT_MNT}/etc/banner" > /dev/null
+              echo "[OK] Banner re-injected"
+            fi
+
+            # 2. Re-inject shadow (root password)
+            if [ -f "files/etc/shadow" ]; then
+              sudo cp -f files/etc/shadow "${ROOT_MNT}/etc/shadow"
+              sudo chmod 600 "${ROOT_MNT}/etc/shadow"
+              echo "[OK] Root password re-injected"
+            fi
+
+            # 3. Re-inject system config (hostname)
+            if [ -f "files/etc/config/system" ]; then
+              sudo cp -f files/etc/config/system "${ROOT_MNT}/etc/config/system"
+              echo "[OK] System config re-injected"
+            fi
+
+            # 3b. Brand firmware version as TIrtayana
+            if sudo test -f "${ROOT_MNT}/etc/openwrt_release"; then
+              ORIG_VER=$(sudo grep "DISTRIB_RELEASE=" "${ROOT_MNT}/etc/openwrt_release" | cut -d"'" -f2)
+              ORIG_REV=$(sudo grep "DISTRIB_REVISION=" "${ROOT_MNT}/etc/openwrt_release" | cut -d"'" -f2)
+              ORIG_TARGET=$(sudo grep "DISTRIB_TARGET=" "${ROOT_MNT}/etc/openwrt_release" | cut -d"'" -f2)
+              ORIG_ARCH=$(sudo grep "DISTRIB_ARCH=" "${ROOT_MNT}/etc/openwrt_release" | cut -d"'" -f2)
+              sudo tee "${ROOT_MNT}/etc/openwrt_release" > /dev/null <<EOF
+DISTRIB_ID='TIrtayana'
+DISTRIB_RELEASE='${ORIG_VER:-24.10}'
+DISTRIB_REVISION='${ORIG_REV:-custom}'
+DISTRIB_TARGET='${ORIG_TARGET:-armsr/armv8}'
+DISTRIB_ARCH='${ORIG_ARCH:-aarch64_generic}'
+DISTRIB_DESCRIPTION='TIrtayana ${ORIG_VER:-24.10} (${ORIG_REV:-custom})'
+DISTRIB_TAINTS=''
+EOF
+              echo "[OK] Firmware branded as TIrtayana"
+            fi
+
+            # 3c. Re-inject argon theme config
+            if [ -f "files/etc/config/argon" ]; then
+              sudo cp -f files/etc/config/argon "${ROOT_MNT}/etc/config/argon"
+              echo "[OK] Argon theme config re-injected"
+            fi
+
+            # 3d. Copy custom argon background
+            if [ -d "files/www/luci-static/argon/background" ]; then
+              sudo mkdir -p "${ROOT_MNT}/www/luci-static/argon/background/"
+              sudo cp -f files/www/luci-static/argon/background/* \
+                         "${ROOT_MNT}/www/luci-static/argon/background/" 2>/dev/null || true
+              echo "[OK] Custom login background re-injected"
+            fi
+
+            # 3e. Append custom gold CSS to argon's cascade.css
+            if [ -f "files/www/luci-static/argon/css/custom.css" ] && \
+               sudo test -f "${ROOT_MNT}/www/luci-static/argon/css/cascade.css"; then
+              sudo sh -c "cat files/www/luci-static/argon/css/custom.css >> ${ROOT_MNT}/www/luci-static/argon/css/cascade.css"
+              echo "[OK] Custom gold CSS appended to cascade.css"
+            fi
+
+            # 3f. Replace argon favicons with TIrtayana logo
+            if [ -d "files/www/luci-static/argon/icon" ]; then
+              sudo cp -f files/www/luci-static/argon/icon/*.png \
+                    "${ROOT_MNT}/www/luci-static/argon/icon/" 2>/dev/null || true
+              echo "[OK] Favicons replaced with TIrtayana branding"
+            fi
+
+            # 3g. Copy TIrtayana sidebar logo
+            if [ -f "files/www/luci-static/argon/img/logo-tirtayana.png" ]; then
+              sudo mkdir -p "${ROOT_MNT}/www/luci-static/argon/img/"
+              sudo cp -f files/www/luci-static/argon/img/logo-tirtayana.png \
+                    "${ROOT_MNT}/www/luci-static/argon/img/logo-tirtayana.png"
+              echo "[OK] TIrtayana sidebar logo injected"
+            fi
+
+            # 3h. Patch argon-config.lua for save and upload functionality
+            ARGON_CBI="${ROOT_MNT}/usr/lib/lua/luci/model/cbi/argon-config.lua"
+            if sudo test -f "$ARGON_CBI"; then
+              # Add missing nixio require for file upload
+              if ! sudo grep -q "^local nixio = require 'nixio'" "$ARGON_CBI"; then
+                sudo sed -i "1i\\local nixio = require 'nixio'" "$ARGON_CBI"
+              fi
+              # Fix form submit to enable Save Changes
+              sudo sed -i "s/^br.submit = false/br.submit = translate('Save Changes')/" "$ARGON_CBI"
+              # Remove redundant Button option
+              sudo sed -i "/^o = s:option(Button.*save.*Save Changes/d" "$ARGON_CBI"
+              sudo sed -i "/^o.inputstyle.*reload/d" "$ARGON_CBI"
+              # Fix save handler state check
+              sudo sed -i "s/state == FORM_VALID and data.blur ~= nil/state == FORM_VALID/" "$ARGON_CBI"
+              sudo sed -i "s/data ~= nil and data.blur ~= nil.*data.mode ~= nil/state == FORM_VALID/" "$ARGON_CBI"
+              # Remove debug writefile
+              sudo sed -i "/writefile.*tmp.*aaa/d" "$ARGON_CBI"
+              # Remove incorrect datatype for hex color fields
+              sudo sed -i "/^o.datatype = ufloat$/d" "$ARGON_CBI"
+              echo "[OK] argon-config.lua patched (save + upload fixes)"
+            fi
+
+            # 3i. Fix Force Light mode in header.htm
+            HEADER_HTM="${ROOT_MNT}/usr/lib/lua/luci/view/themes/argon/header.htm"
+            if sudo test -f "$HEADER_HTM"; then
+              sudo sed -i "s/if mode ~= 'dark'/if mode == 'normal'/" "$HEADER_HTM"
+              echo "[OK] header.htm patched (Force Light mode fix)"
+            fi
+
+            # 3j. Copy custom footer templates with embedded GitHub link
+            ARGON_VIEWS="${ROOT_MNT}/usr/lib/lua/luci/view/themes/argon"
+            SRC_VIEWS="files/usr/lib/lua/luci/view/themes/argon"
+            for TMPL in footer.htm footer_login.htm; do
+              if [ -f "${SRC_VIEWS}/${TMPL}" ]; then
+                sudo cp -f "${SRC_VIEWS}/${TMPL}" "${ARGON_VIEWS}/${TMPL}"
+                echo "[OK] ${TMPL} replaced (GitHub link embedded)"
+              fi
+            done
+
+            # 4. Force LuCI to use base argon theme
+            sudo tee "${ROOT_MNT}/etc/config/luci" > /dev/null <<'LUCI_EOF'
+config core 'main'
+	option lang 'auto'
+	option mediaurlbase '/luci-static/argon'
+	option resourcebase '/luci-static/resources'
+	option ubuspath '/ubus/'
+
+config extern 'flash_keep'
+	option uci '/etc/config/'
+	option dropbear '/etc/dropbear/'
+
+config internal 'sauth'
+	option sessionpath '/tmp/luci-sessions'
+	option sessiontime '3600'
+
+config internal 'ccache'
+	option enable '1'
+
+config internal 'apply'
+	option rollback '90'
+	option holdoff '4'
+	option timeout '5'
+	option display '1.5'
+
+config internal 'themes'
+	option Argon '/luci-static/argon'
+	option OpenWrt2020 '/luci-static/openwrt2020'
+LUCI_EOF
+            echo "[OK] LuCI forced to base argon theme"
+
+            # 6. Fix extlinux.conf.bak → extlinux.conf
+            if sudo test -f "${BOOT_MNT}/extlinux/extlinux.conf.bak"; then
+              sudo cp -f "${BOOT_MNT}/extlinux/extlinux.conf.bak" "${BOOT_MNT}/extlinux/extlinux.conf"
+              echo "[OK] Fixed extlinux.conf.bak → extlinux.conf"
+            fi
+
+            # 7. Create u-boot.ext from u-boot-s905x-s912.bin
+            if sudo test -f "${BOOT_MNT}/u-boot-s905x-s912.bin"; then
+              sudo cp -f "${BOOT_MNT}/u-boot-s905x-s912.bin" "${BOOT_MNT}/u-boot.ext"
+              sudo chmod +x "${BOOT_MNT}/u-boot.ext"
+              echo "[OK] Created u-boot.ext from u-boot-s905x-s912.bin"
+            elif ! sudo test -f "${BOOT_MNT}/u-boot.ext"; then
+              echo "[WARN] u-boot-s905x-s912.bin NOT found, u-boot.ext not created"
+            else
+              echo "[OK] u-boot.ext already present"
+            fi
+
+            # 8. Verify boot config DTB
+            echo "--- Boot config ---"
+            sudo grep -i 'fdt\|dtb' "${BOOT_MNT}/uEnv.txt" 2>/dev/null || true
+            sudo grep -i 'fdt\|dtb' "${BOOT_MNT}/extlinux/extlinux.conf" 2>/dev/null || true
+
+            sudo sync
+            sudo umount "${ROOT_MNT}" 2>/dev/null
+            sudo umount "${BOOT_MNT}" 2>/dev/null
+            sudo losetup -d "${LOOP_DEV}" 2>/dev/null
+            sudo rm -rf "${BOOT_MNT}" "${ROOT_MNT}"
+            echo "[OK] Image patched: $(basename $img)"
+          done
+
+          # Re-compress patched images
+          echo "=== Re-compressing patched images ==="
+          for img in "${OUTPATH}/"*.img; do
+            [ -f "$img" ] || continue
+            echo "Compressing: $(basename $img)"
+            pigz -9 -f "$img" || gzip -9 -f "$img"
+          done
+          echo "[OK] Post-packaging complete"
+
+      - name: Rename Output to TIrtayana Brand
         run: |
           OUTPATH="${{ env.PACKAGED_OUTPUTPATH }}"
           PROFILE="${{ matrix.profile }}"
@@ -577,21 +807,21 @@ jobs:
           echo "=== Renamed files ==="
           ls -lh "${OUTPATH}/"
 
-      - name: 🏷️ Generate Package Release Tag
+      - name: Generate Package Release Tag
         id: pkg_tag
         run: |
           TAG="TIrtayana-B860H-${{ matrix.profile }}-$(date +%Y.%m.%d-%H%M)"
           echo "PKG_RELEASE_TAG=$TAG" >> $GITHUB_OUTPUT
           echo "Release tag: $TAG"
 
-      - name: 📤 Upload B860H Firmware as Artifact
+      - name: Upload B860H Firmware as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: TIrtayana-OpenWrt-B860H-${{ matrix.profile }}-${{ steps.pkg_tag.outputs.PKG_RELEASE_TAG }}
           path: ${{ env.PACKAGED_OUTPUTPATH }}/*
           retention-days: 30
 
-      - name: 🚀 Create GitHub Release
+      - name: Create GitHub Release
         uses: ncipollo/release-action@main
         if: |
           env.PACKAGED_STATUS == 'success' &&
@@ -606,35 +836,44 @@ jobs:
           generateReleaseNotes: false
           token: ${{ secrets.GITHUB_TOKEN }}
           body: |
-            ## 📦 TIrtayana OpenWrt for STB B860H (${{ matrix.profile }})
+            ## TIrtayana OpenWrt for STB B860H (${{ matrix.profile }})
             > Automatically built by GitHub Actions
 
-            ### 🖥️ Firmware Information
+            ### Firmware Information
             | Item | Detail |
             |------|--------|
-            | **Board** | STB B860H (Amlogic S905X) |
+            | **Board** | ZTE STB B860H (Amlogic S905X) |
             | **Profile** | ${{ matrix.profile }} |
+            | **DTB** | `meson-gxl-s905x-b860h.dtb` |
             | **Target** | armsr/armv8 → ophub packaged |
-            | **LuCI Theme** | Argon (Modern Dark Theme) |
+            | **LuCI Theme** | Argon-Tirtayana (Gold palette, fixed sidebar) |
+            | **Amlogic Service** | luci-app-amlogic (eMMC install, update, backup) |
             | **Kernel** | Dynamic (Minimal: 5.15.y, Standard: 6.1.y, Education: 6.6.y) or Custom |
             | **Default IP** | ${{ github.event.inputs.openwrt_ip || '192.168.1.1' }} |
             | **Username** | root |
             | **Password** | TIudayana |
             | **Build Date** | ${{ env.PACKAGED_OUTPUTDATE }} |
 
-            ### 🚀 How to Install on B860H
-            1. Flash the firmware to a **USB drive** or **SD card** using Rufus / balenaEtcher
+            ### Profile Details
+            - **Minimal:** Base system + network only (SSH/CLI, no LuCI web UI)
+            - **Standard:** Full LuCI + Amlogic Service + monitoring tools + Argon-Tirtayana theme
+            - **Education:** All Standard + VPN, RADIUS, captive portal, Docker, network analysis tools
+
+            ### How to Install on B860H
+            1. Flash the `.img.gz` file to a **USB drive** or **SD card** using Rufus / balenaEtcher
             2. Plug the USB/SD into the STB B860H and power it on
-            3. Access LuCI at `http://192.168.1.1`
+            3. Access LuCI at `http://192.168.1.1` (Standard/Education only)
             4. Log in with username `root` and password `TIudayana`
             5. Go to **System → Amlogic Service → Install OpenWrt**
-            6. Select device `B860H` and click **Install**
+            6. Select device `B860H` and click **Install** to write to eMMC
 
-            ### ⚠️ Important Notes
+            ### [WARN] Important Notes
             - Back up your original Android ROM first using `openwrt-ddbr`
+            - Firmware uses DTB `meson-gxl-s905x-b860h.dtb` for B860H hardware compatibility
             - To update the kernel: **System → Amlogic Service → Update Kernel**
-            - Flash the `.img.gz` file directly to your USB/SD card
+            - Minimal profile has no web UI — use SSH (`ssh root@192.168.1.1`)
 
-            ### 🎨 Theme
-            Uses **luci-theme-argon** — a modern theme with dark mode support,
-            custom background images, and a clean interface.
+            ### Theme: Argon-Tirtayana
+            Custom LuCI theme with fixed sidebar navigation, gold color palette,
+            premium two-column login page with firmware edition display,
+            and integrated Amlogic Service management.

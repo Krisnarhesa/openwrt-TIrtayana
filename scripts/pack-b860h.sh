@@ -23,7 +23,7 @@ BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 # ── Default configuration ─────────────────────────────────────
-BOARD="s905x"                          # Chip B860H = Amlogic S905X
+BOARD="s905x-b860h"                    # ophub board ID for B860H (uses meson-gxl-s905x-b860h.dtb)
 KERNEL_VERSION="6.1.y_6.6.y"          # Multiple kernel series
 OPENWRT_IP="192.168.1.1"              # Default router IP
 ROOTFS_SIZE="256/1024"                 # BOOTFS/ROOTFS in MB
@@ -35,6 +35,9 @@ OUTPUT_DIR="out/b860h"
 KERNEL_REPO=""
 PROFILE=""
 COMPILE_FIRST="false"
+DTB_FILE="meson-gxl-s905x-b860h.dtb"  # B860H device tree blob
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(dirname "${SCRIPT_DIR}")"
 
 # ── Helper functions ────────────────────────────────────────
 info()    { echo -e "${CYAN}[INFO]${NC} $*"; }
@@ -166,6 +169,11 @@ EOF
         
         chown "${orig_user}:${orig_user}" .config
 
+        # ── Ensure feeds are updated so packages stay in .config ──────
+        info "Updating feeds to ensure plugins (like luci-app-amlogic) are found..."
+        sudo -u "${orig_user}" ./scripts/feeds update ophub >/dev/null 2>&1 || true
+        sudo -u "${orig_user}" ./scripts/feeds install luci-app-amlogic >/dev/null 2>&1 || true
+
         # ── Clean stale package install artifacts ────────────────────────
         # When recompiling after a previous build used a different kernel version,
         # the old kmod package stamps cause "kernel hash mismatch" errors.
@@ -187,6 +195,9 @@ EOF
         find bin/ -name "Packages" -delete 2>/dev/null || true
         find bin/ -name "Packages.gz" -delete 2>/dev/null || true
         find bin/ -name "Packages.manifest" -delete 2>/dev/null || true
+        
+        # 3. Force root filesystem tarball to be recreated with fresh packages
+        rm -f bin/targets/*/*/*rootfs.tar.gz 2>/dev/null || true
 
         success "Stale kmod packages and index cleaned — kernel will be rebuilt cleanly"
         # ────────────────────────────────────────────────────────────────
@@ -332,6 +343,257 @@ run_packaging() {
 
     cd - > /dev/null
     success "Packaging process completed!"
+
+    # ── Post-packaging: Re-inject custom files that ophub overwrites ──
+    header "Re-injecting TIrtayana Custom Files"
+    local ophub_out="${OPHUB_DIR}/openwrt/out"
+
+    # CRITICAL: Ophub compresses .img → .img.gz at the end of remake.
+    # We must decompress first, patch, then recompress.
+    local found_images=0
+    for imgz in "${ophub_out}/"*.img.gz; do
+        [ -f "$imgz" ] || continue
+        info "Decompressing: $(basename $imgz)"
+        gunzip -f "$imgz" || { warn "Failed to decompress $imgz"; continue; }
+        found_images=$((found_images + 1))
+    done
+
+    if [ ${found_images} -eq 0 ]; then
+        # Check if there are uncompressed .img files already
+        for img in "${ophub_out}/"*.img; do
+            [ -f "$img" ] && found_images=$((found_images + 1))
+        done
+    fi
+
+    if [ ${found_images} -eq 0 ]; then
+        warn "No .img or .img.gz files found in ${ophub_out}"
+    fi
+
+    for img in "${ophub_out}/"*.img; do
+        [ -f "$img" ] || continue
+        info "Patching image: $(basename $img)"
+
+        # Mount both partitions
+        local loop_dev boot_mnt root_mnt
+        loop_dev=$(losetup --show -fP "$img") || { warn "Failed to setup loop for $img"; continue; }
+        boot_mnt="/tmp/b860h-boot-$$"
+        root_mnt="/tmp/b860h-root-$$"
+        mkdir -p "${boot_mnt}" "${root_mnt}"
+
+        mount "${loop_dev}p1" "${boot_mnt}" 2>/dev/null || { losetup -d "${loop_dev}"; warn "Failed to mount boot partition"; continue; }
+        mount -t btrfs -o compress=zstd:6 "${loop_dev}p2" "${root_mnt}" 2>/dev/null || mount "${loop_dev}p2" "${root_mnt}" 2>/dev/null || {
+            umount "${boot_mnt}" 2>/dev/null
+            losetup -d "${loop_dev}"
+            warn "Failed to mount root partition"
+            continue
+        }
+
+        # 1. Re-inject custom banner (ophub overwrites this with its own)
+        if [ -f "${PROJECT_DIR}/files/etc/banner" ]; then
+            cp -f "${PROJECT_DIR}/files/etc/banner" "${root_mnt}/etc/banner"
+            # Append ophub-style info lines after our custom banner
+            echo " Install OpenWrt: System → Amlogic Service → Install OpenWrt" >> "${root_mnt}/etc/banner"
+            echo " Update  OpenWrt: System → Amlogic Service → Online  Update" >> "${root_mnt}/etc/banner"
+            echo " Board: s905x-b860h | DTB: ${DTB_FILE}" >> "${root_mnt}/etc/banner"
+            echo " Builder: ${BUILDER_NAME} | Date: $(date +%Y-%m-%d)" >> "${root_mnt}/etc/banner"
+            echo "───────────────────────────────────────────────────────────────────────" >> "${root_mnt}/etc/banner"
+            success "Custom banner re-injected"
+        fi
+
+        # 2. Re-inject custom shadow (root password)
+        if [ -f "${PROJECT_DIR}/files/etc/shadow" ]; then
+            cp -f "${PROJECT_DIR}/files/etc/shadow" "${root_mnt}/etc/shadow"
+            chmod 600 "${root_mnt}/etc/shadow"
+            success "Custom root password re-injected"
+        fi
+
+        # 3. Re-inject system config (hostname)
+        if [ -f "${PROJECT_DIR}/files/etc/config/system" ]; then
+            cp -f "${PROJECT_DIR}/files/etc/config/system" "${root_mnt}/etc/config/system"
+            success "Custom system config re-injected"
+        fi
+
+        # 3b. Brand firmware version as TIrtayana
+        if [ -f "${root_mnt}/etc/openwrt_release" ]; then
+            # Extract real version info from ophub-generated file
+            local orig_ver orig_rev orig_target orig_arch
+            orig_ver=$(grep "DISTRIB_RELEASE=" "${root_mnt}/etc/openwrt_release" | cut -d"'" -f2)
+            orig_rev=$(grep "DISTRIB_REVISION=" "${root_mnt}/etc/openwrt_release" | cut -d"'" -f2)
+            orig_target=$(grep "DISTRIB_TARGET=" "${root_mnt}/etc/openwrt_release" | cut -d"'" -f2)
+            orig_arch=$(grep "DISTRIB_ARCH=" "${root_mnt}/etc/openwrt_release" | cut -d"'" -f2)
+            # Overwrite entire file with TIrtayana branding
+            cat > "${root_mnt}/etc/openwrt_release" <<EOF
+DISTRIB_ID='TIrtayana'
+DISTRIB_RELEASE='${orig_ver:-24.10}'
+DISTRIB_REVISION='${orig_rev:-custom}'
+DISTRIB_TARGET='${orig_target:-armsr/armv8}'
+DISTRIB_ARCH='${orig_arch:-aarch64_generic}'
+DISTRIB_DESCRIPTION='TIrtayana ${orig_ver:-24.10} (${orig_rev:-custom})'
+DISTRIB_TAINTS=''
+EOF
+            success "Firmware branded as TIrtayana (DISTRIB_DESCRIPTION overwritten)"
+        fi
+
+        # 3c. Re-inject argon theme config
+        if [ -f "${PROJECT_DIR}/files/etc/config/argon" ]; then
+            cp -f "${PROJECT_DIR}/files/etc/config/argon" "${root_mnt}/etc/config/argon"
+            success "Argon theme config re-injected"
+        fi
+
+        # 3d. Copy custom argon background
+        if [ -d "${PROJECT_DIR}/files/www/luci-static/argon/background" ]; then
+            mkdir -p "${root_mnt}/www/luci-static/argon/background/"
+            cp -f "${PROJECT_DIR}/files/www/luci-static/argon/background/"* \
+                  "${root_mnt}/www/luci-static/argon/background/" 2>/dev/null
+            success "Custom login background re-injected"
+        fi
+
+        # 3e. Append custom gold CSS to argon's cascade.css
+        if [ -f "${PROJECT_DIR}/files/www/luci-static/argon/css/custom.css" ] && \
+           [ -f "${root_mnt}/www/luci-static/argon/css/cascade.css" ]; then
+            cat "${PROJECT_DIR}/files/www/luci-static/argon/css/custom.css" >> \
+                "${root_mnt}/www/luci-static/argon/css/cascade.css"
+            success "Custom gold CSS appended to cascade.css"
+        fi
+
+        # 3f. Replace argon favicons with TIrtayana logo
+        if [ -d "${PROJECT_DIR}/files/www/luci-static/argon/icon" ]; then
+            cp -f "${PROJECT_DIR}/files/www/luci-static/argon/icon/"*.png \
+                  "${root_mnt}/www/luci-static/argon/icon/" 2>/dev/null
+            success "Favicons replaced with TIrtayana branding"
+        fi
+
+        # 3g. Copy TIrtayana sidebar logo
+        if [ -f "${PROJECT_DIR}/files/www/luci-static/argon/img/logo-tirtayana.png" ]; then
+            mkdir -p "${root_mnt}/www/luci-static/argon/img/"
+            cp -f "${PROJECT_DIR}/files/www/luci-static/argon/img/logo-tirtayana.png" \
+                  "${root_mnt}/www/luci-static/argon/img/logo-tirtayana.png"
+            success "TIrtayana sidebar logo injected"
+        fi
+
+        # 3h. Patch argon-config.lua for save and upload functionality
+        local argon_cbi="${root_mnt}/usr/lib/lua/luci/model/cbi/argon-config.lua"
+        if [ -f "$argon_cbi" ]; then
+            # Add missing nixio require for file upload
+            if ! grep -q "^local nixio = require 'nixio'" "$argon_cbi"; then
+                sed -i '1i\local nixio = require '\''nixio'\''' "$argon_cbi"
+            fi
+            # Fix form submit to enable Save Changes
+            sed -i "s/^br.submit = false/br.submit = translate('Save Changes')/" "$argon_cbi"
+            # Remove redundant Button option
+            sed -i '/^o = s:option(Button.*save.*Save Changes/d' "$argon_cbi"
+            sed -i '/^o.inputstyle.*reload/d' "$argon_cbi"
+            # Fix save handler state check
+            sed -i 's/state == FORM_VALID and data.blur ~= nil/state == FORM_VALID/' "$argon_cbi"
+            sed -i 's/data ~= nil and data.blur ~= nil.*data.mode ~= nil/state == FORM_VALID/' "$argon_cbi"
+            # Remove debug writefile
+            sed -i "/writefile.*tmp.*aaa/d" "$argon_cbi"
+            # Remove incorrect datatype for hex color fields
+            sed -i '/^o.datatype = ufloat$/d' "$argon_cbi"
+            success "argon-config.lua patched (save + upload fixes)"
+        fi
+
+        # 3i. Fix Force Light mode in header.htm
+        # Bug: argon treats 'light' and 'normal' the same (mode ~= 'dark')
+        # Both inject dark.css via @media, so Force Light has no effect on dark-OS users
+        # Fix: change to 'mode == normal' so only 'normal' uses @media query
+        local header_htm="${root_mnt}/usr/lib/lua/luci/view/themes/argon/header.htm"
+        if [ -f "$header_htm" ]; then
+            sed -i "s/if mode ~= 'dark'/if mode == 'normal'/" "$header_htm"
+            success "header.htm patched (Force Light mode fix)"
+        fi
+
+        # 3j. Copy custom footer templates with embedded GitHub link
+        local argon_views="${root_mnt}/usr/lib/lua/luci/view/themes/argon"
+        local src_views="${PROJECT_DIR}/files/usr/lib/lua/luci/view/themes/argon"
+        for tmpl in footer.htm footer_login.htm; do
+            if [ -f "${src_views}/${tmpl}" ]; then
+                cp -f "${src_views}/${tmpl}" "${argon_views}/${tmpl}"
+                success "${tmpl} replaced (GitHub link embedded)"
+            fi
+        done
+
+        # 4. Force LuCI to use base argon theme
+        cat > "${root_mnt}/etc/config/luci" <<'LUCI_EOF'
+config core 'main'
+	option lang 'auto'
+	option mediaurlbase '/luci-static/argon'
+	option resourcebase '/luci-static/resources'
+	option ubuspath '/ubus/'
+
+config extern 'flash_keep'
+	option uci '/etc/config/'
+	option dropbear '/etc/dropbear/'
+
+config internal 'sauth'
+	option sessionpath '/tmp/luci-sessions'
+	option sessiontime '3600'
+
+config internal 'ccache'
+	option enable '1'
+
+config internal 'apply'
+	option rollback '90'
+	option holdoff '4'
+	option timeout '5'
+	option display '1.5'
+
+config internal 'themes'
+	option Argon '/luci-static/argon'
+	option OpenWrt2020 '/luci-static/openwrt2020'
+LUCI_EOF
+        success "LuCI forced to base argon theme"
+
+        # 7. Re-inject amlogic_model.conf
+        if [ -f "${PROJECT_DIR}/files/etc/amlogic_model.conf" ]; then
+            cp -f "${PROJECT_DIR}/files/etc/amlogic_model.conf" "${root_mnt}/etc/amlogic_model.conf"
+            success "amlogic_model.conf re-injected"
+        fi
+
+        # 7. Fix extlinux.conf.bak → extlinux.conf
+        if [ -f "${boot_mnt}/extlinux/extlinux.conf.bak" ] && [ ! -f "${boot_mnt}/extlinux/extlinux.conf" ]; then
+            mv "${boot_mnt}/extlinux/extlinux.conf.bak" "${boot_mnt}/extlinux/extlinux.conf"
+            success "Renamed extlinux.conf.bak → extlinux.conf"
+        elif [ -f "${boot_mnt}/extlinux/extlinux.conf.bak" ]; then
+            cp -f "${boot_mnt}/extlinux/extlinux.conf.bak" "${boot_mnt}/extlinux/extlinux.conf"
+            success "Copied extlinux.conf.bak → extlinux.conf (kept backup)"
+        fi
+
+        # 8. Create u-boot.ext from u-boot-s905x-s912.bin
+        if [ -f "${boot_mnt}/u-boot-s905x-s912.bin" ]; then
+            cp -f "${boot_mnt}/u-boot-s905x-s912.bin" "${boot_mnt}/u-boot.ext"
+            chmod +x "${boot_mnt}/u-boot.ext"
+            success "Created u-boot.ext from u-boot-s905x-s912.bin"
+        elif [ ! -f "${boot_mnt}/u-boot.ext" ]; then
+            warn "u-boot-s905x-s912.bin NOT found, u-boot.ext not created"
+        else
+            success "u-boot.ext already present"
+        fi
+
+        # 9. Verify boot config has correct DTB
+        if [ -f "${boot_mnt}/uEnv.txt" ]; then
+            info "uEnv.txt FDT: $(grep 'FDT\|dtb' "${boot_mnt}/uEnv.txt" 2>/dev/null)"
+        fi
+        if [ -f "${boot_mnt}/extlinux/extlinux.conf" ]; then
+            info "extlinux FDT: $(grep 'FDT\|dtb\|fdt' "${boot_mnt}/extlinux/extlinux.conf" 2>/dev/null)"
+        fi
+
+        sync
+        umount "${root_mnt}" 2>/dev/null
+        umount "${boot_mnt}" 2>/dev/null
+        losetup -d "${loop_dev}" 2>/dev/null
+        rm -rf "${boot_mnt}" "${root_mnt}"
+        success "Image patched successfully: $(basename $img)"
+    done
+
+    # Re-compress patched images back to .img.gz
+    header "Re-compressing Patched Images"
+    for img in "${ophub_out}/"*.img; do
+        [ -f "$img" ] || continue
+        info "Compressing: $(basename $img)"
+        pigz -f "$img" 2>/dev/null || gzip -f "$img"
+        success "Compressed: $(basename $img).gz"
+    done
 }
 
 # ── Copy results to output dir ────────────────────────────────
@@ -370,7 +632,7 @@ collect_output() {
     echo ""
     echo -e "  ${BOLD}Generated files:${NC}"
     ls -lh "${OUTPUT_DIR}/" | grep -v "^total" | while read -r line; do
-        echo -e "  ${GREEN}✔${NC} $line"
+        echo -e "  ${GREEN}OK${NC} $line"
     done
 }
 
@@ -414,7 +676,7 @@ main() {
     collect_output
     print_install_guide
 
-    echo -e "${GREEN}${BOLD}✅  All done! The B860H Firmware is ready to use.${NC}"
+    echo -e "${GREEN}${BOLD}All done! The B860H Firmware is ready to use.${NC}"
     echo ""
 }
 
