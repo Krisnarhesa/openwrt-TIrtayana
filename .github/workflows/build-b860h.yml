@@ -30,9 +30,9 @@ on:
         required: false
         default: '1024'
       kernel_repo:
-        description: 'Custom Kernel Repository (optional)'
+        description: 'Custom Kernel Repository (owner/repo format)'
         required: false
-        default: ''
+        default: 'Krisnarhesa/kernel'
       upload_release:
         description: 'Upload to GitHub Releases?'
         required: false
@@ -538,13 +538,13 @@ jobs:
 
       - name: Package OpenWrt for B860H using ophub
         uses: ophub/amlogic-s9xxx-openwrt@main
-        env:
-          CUSTOM_KERNEL_REPO: ${{ github.event.inputs.kernel_repo }}
         with:
           # Path to rootfs file
           openwrt_path: openwrt-armsr/*rootfs.tar.gz
           # Board target: s905x-b860h = B860H with correct DTB
           openwrt_board: ${{ env.BOARD }}
+          # Custom kernel repository (default: Krisnarhesa/kernel)
+          kernel_repo: ${{ github.event.inputs.kernel_repo || 'Krisnarhesa/kernel' }}
           # Kernel version logic: if input is empty, select by profile
           # Minimal → 5.15.y | Standard → 6.1.y | Education → 6.6.y
           openwrt_kernel: ${{ github.event.inputs.kernel_version || (matrix.profile == 'education' && '6.6.y') || (matrix.profile == 'standard' && '6.1.y') || '5.15.y' }}

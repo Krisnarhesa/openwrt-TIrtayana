@@ -9,6 +9,7 @@
 #   sudo ./scripts/pack-b860h.sh
 #   sudo ./scripts/pack-b860h.sh -k 6.6.y
 #   sudo ./scripts/pack-b860h.sh -k 6.1.y -s 2048 -i 192.168.2.1
+#   sudo ./scripts/pack-b860h.sh -R Krisnarhesa/kernel -k 6.6.y
 # =============================================================
 
 set -euo pipefail
@@ -32,7 +33,7 @@ OPHUB_REPO="https://github.com/ophub/amlogic-s9xxx-openwrt.git"
 OPHUB_DIR="/tmp/ophub-packager"
 ROOTFS_PATTERN="bin/targets/armsr/armv8/*rootfs.tar.gz"
 OUTPUT_DIR="out/b860h"
-KERNEL_REPO=""
+KERNEL_REPO="Krisnarhesa/kernel"      # Default: TIrtayana custom kernel
 PROFILE=""
 COMPILE_FIRST="false"
 DTB_FILE="meson-gxl-s905x-b860h.dtb"  # B860H device tree blob
@@ -77,14 +78,16 @@ usage() {
     echo "  -n  Builder name     (default: ${BUILDER_NAME})"
     echo "  -o  Output dir       (default: ${OUTPUT_DIR})"
     echo "  -r  Custom Ophub     (default: ${OPHUB_REPO})"
-    echo "  -R  Custom Kernel    (default: optional)"
-    echo "  -p  Build profile    (default: optional)"
+    echo "  -R  Custom Kernel    (default: ${KERNEL_REPO})"
+    echo "  -p  Build profile    (minimal/standard/education)"
     echo "  -c  Recompile OpenWrt from scratch before packaging"
     echo "  -h  Display this help message"
     echo ""
     echo "Examples:"
-    echo "  sudo $0 -c -k 6.6.y"
+    echo "  sudo $0 -c -k 6.6.y -p standard"
     echo "  sudo $0 -k 6.1.y -i 10.0.0.1"
+    echo "  sudo $0 -R Krisnarhesa/kernel -k 6.6.y"
+    echo "  sudo $0 -R '' -k 6.1.y  # use default ophub kernel"
     exit 0
 }
 
@@ -105,7 +108,7 @@ while getopts "k:i:s:b:n:o:r:R:p:hc" opt; do
     esac
 done
 
-# ── Root check check ─────────────────────────────────────────
+# ── Root check ────────────────────────────────────────────────
 check_root() {
     if [ "$(id -u)" -ne 0 ]; then
         error "This script must be run as root.\n  Use: sudo $0 $*"
@@ -215,27 +218,91 @@ EOF
     fi
 }
 
-# ── Check dependencies ────────────────────────────────────────
-check_deps() {
-    header "Checking Dependencies"
-    local deps=(git curl wget tar gzip)
-    local missing=()
+# ── System check & dependency verification (mirrors CI workflow) ──
+check_system() {
+    header "System Check & Build Requirements"
 
-    for dep in "${deps[@]}"; do
-        if command -v "$dep" &>/dev/null; then
-            success "$dep is available"
+    echo -e "  ${BOLD}OS Information:${NC}"
+    if command -v lsb_release &>/dev/null; then
+        echo -e "  ├─ Distro  : ${CYAN}$(lsb_release -ds 2>/dev/null)${NC}"
+    else
+        echo -e "  ├─ Distro  : ${CYAN}$(grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d'"' -f2)${NC}"
+    fi
+    echo -e "  ├─ CPU     : ${CYAN}$(nproc) cores${NC}"
+    echo -e "  ├─ RAM     : ${CYAN}$(free -h | awk '/Mem:/{print $2}') total / $(free -h | awk '/Mem:/{print $7}') available${NC}"
+    echo -e "  └─ Disk    : ${CYAN}$(df -h . | awk 'NR==2{print $4}') free${NC}"
+    echo ""
+
+    # ── Check required tools ──
+    local TOOLS=(git make gcc g++ flex bison gawk wget unzip python3 rsync ccache curl tar gzip losetup pigz)
+    local MISSING=()
+
+    echo -e "  ${BOLD}Checking required tools:${NC}"
+    for t in "${TOOLS[@]}"; do
+        if command -v "$t" &>/dev/null; then
+            echo -e "  ${GREEN}[OK]${NC}      $t  →  $(command -v $t)"
         else
-            missing+=("$dep")
-            warn "$dep is missing"
+            echo -e "  ${RED}[MISSING]${NC} $t"
+            MISSING+=("$t")
         fi
     done
 
-    if [ ${#missing[@]} -gt 0 ]; then
-        info "Installing missing dependencies: ${missing[*]}"
-        apt-get update -y -qq
-        apt-get install -y -qq "${missing[@]}"
-        success "Dependencies installed successfully"
+    # ── Check pahole / dwarves ──
+    echo ""
+    echo -e "  ${BOLD}Checking pahole (dwarves):${NC}"
+    if command -v pahole &>/dev/null; then
+        local PAHOLE_VER
+        PAHOLE_VER=$(pahole --version 2>&1 | grep -oP '\d+\.\d+' | head -1)
+        local MAJOR MINOR
+        MAJOR=$(echo "$PAHOLE_VER" | cut -d. -f1)
+        MINOR=$(echo "$PAHOLE_VER" | cut -d. -f2)
+        if [ "${MAJOR:-0}" -lt 1 ] || { [ "${MAJOR:-0}" -eq 1 ] && [ "${MINOR:-0}" -lt 16 ]; }; then
+            warn "pahole $PAHOLE_VER is older than 1.16 — may cause build errors with kernel 6.6"
+        else
+            echo -e "  ${GREEN}[OK]${NC}      pahole $PAHOLE_VER"
+        fi
+    else
+        echo -e "  ${RED}[MISSING]${NC} pahole (dwarves)"
+        MISSING+=("dwarves")
     fi
+
+    # ── Check Python3 modules ──
+    echo ""
+    echo -e "  ${BOLD}Checking Python3 modules:${NC}"
+    for mod in distutils setuptools; do
+        if python3 -c "import $mod" 2>/dev/null; then
+            echo -e "  ${GREEN}[OK]${NC}      python3-$mod"
+        else
+            echo -e "  ${YELLOW}[WARN]${NC}    python3-$mod not found (non-fatal on Ubuntu 24.04+)"
+        fi
+    done
+
+    # ── Disk space warning ──
+    local FREE_GB
+    FREE_GB=$(df -BG . | awk 'NR==2{print $4}' | tr -d 'G')
+    if [ "${FREE_GB:-0}" -lt 10 ]; then
+        warn "Less than 10GB free disk space — build may fail!"
+    fi
+
+    # ── Auto-install missing ──
+    echo ""
+    if [ ${#MISSING[@]} -gt 0 ]; then
+        info "Installing missing dependencies: ${MISSING[*]}"
+        apt-get update -y -qq
+        apt-get install -y -qq "${MISSING[@]}" || true
+        success "Installation attempt finished"
+    else
+        success "All required dependencies are present"
+    fi
+
+    # ── Build environment summary ──
+    echo ""
+    echo -e "  ${BOLD}Build Environment Summary:${NC}"
+    echo -e "  ├─ gcc    : ${CYAN}$(gcc --version 2>/dev/null | head -1 || echo 'N/A')${NC}"
+    echo -e "  ├─ make   : ${CYAN}$(make --version 2>/dev/null | head -1 || echo 'N/A')${NC}"
+    echo -e "  ├─ python : ${CYAN}$(python3 --version 2>/dev/null || echo 'N/A')${NC}"
+    echo -e "  ├─ git    : ${CYAN}$(git --version 2>/dev/null || echo 'N/A')${NC}"
+    echo -e "  └─ pahole : ${CYAN}$(pahole --version 2>&1 | head -1 || echo 'N/A')${NC}"
 }
 
 # ── Find rootfs file ──────────────────────────────────────────
@@ -292,6 +359,16 @@ prepare_workspace() {
     rm -rf "${armsr_dir}"
     mkdir -p "${armsr_dir}"
 
+    # Clean stale output from previous builds
+    # This prevents old kernel images (e.g. 6.6 from education) from
+    # contaminating a new build (e.g. 6.1 standard) and overwriting output
+    local ophub_out="${OPHUB_DIR}/openwrt/out"
+    if [ -d "${ophub_out}" ]; then
+        info "Cleaning previous build output..."
+        rm -f "${ophub_out}"/*.img "${ophub_out}"/*.img.gz 2>/dev/null || true
+        success "Previous output cleaned"
+    fi
+
     # Copy rootfs there
     info "Copying rootfs to ophub workspace..."
     cp "${ROOTFS_FILE}" "${armsr_dir}/"
@@ -328,18 +405,25 @@ run_packaging() {
         final_builder="${BUILDER_NAME}_${PROFILE}"
     fi
 
+    # Build remake command with optional kernel repo
+    local remake_cmd=(
+        sudo -E ./remake
+        -b "${BOARD}"
+        -k "${KERNEL_VERSION}"
+        -p "${OPENWRT_IP}"
+        -s "${ROOTFS_SIZE}"
+        -n "${final_builder}"
+        -a true
+    )
+
+    # Pass custom kernel repo via -r flag (not env variable)
     if [ -n "${KERNEL_REPO}" ]; then
-        export CUSTOM_KERNEL_REPO="${KERNEL_REPO}"
+        remake_cmd+=(-r "${KERNEL_REPO}")
+        info "Using custom kernel from: ${KERNEL_REPO}"
     fi
 
     # Run ophub remake script
-    sudo -E ./remake \
-        -b "${BOARD}" \
-        -k "${KERNEL_VERSION}" \
-        -p "${OPENWRT_IP}" \
-        -s "${ROOTFS_SIZE}" \
-        -n "${final_builder}" \
-        -a true
+    "${remake_cmd[@]}"
 
     cd - > /dev/null
     success "Packaging process completed!"
@@ -421,17 +505,51 @@ run_packaging() {
             orig_rev=$(grep "DISTRIB_REVISION=" "${root_mnt}/etc/openwrt_release" | cut -d"'" -f2)
             orig_target=$(grep "DISTRIB_TARGET=" "${root_mnt}/etc/openwrt_release" | cut -d"'" -f2)
             orig_arch=$(grep "DISTRIB_ARCH=" "${root_mnt}/etc/openwrt_release" | cut -d"'" -f2)
+            # Build profile tag for version string (e.g. "Standard", "Education")
+            local profile_tag=""
+            if [ -n "${PROFILE}" ]; then
+                profile_tag=" $(echo "${PROFILE}" | sed 's/.*/\u&/')"
+            fi
             # Overwrite entire file with TIrtayana branding
             cat > "${root_mnt}/etc/openwrt_release" <<EOF
 DISTRIB_ID='TIrtayana'
-DISTRIB_RELEASE='${orig_ver:-24.10}'
+DISTRIB_RELEASE='${orig_ver:-24.10}${profile_tag}'
 DISTRIB_REVISION='${orig_rev:-custom}'
 DISTRIB_TARGET='${orig_target:-armsr/armv8}'
 DISTRIB_ARCH='${orig_arch:-aarch64_generic}'
-DISTRIB_DESCRIPTION='TIrtayana ${orig_ver:-24.10} (${orig_rev:-custom})'
+DISTRIB_DESCRIPTION='TIrtayana ${orig_ver:-24.10}${profile_tag} (${orig_rev:-custom})'
 DISTRIB_TAINTS=''
 EOF
-            success "Firmware branded as TIrtayana (DISTRIB_DESCRIPTION overwritten)"
+            success "Firmware branded as TIrtayana${profile_tag} (openwrt_release overwritten)"
+        fi
+
+        # 3b2. Brand /usr/lib/os-release (procd reads THIS for ubus call system board → LuCI Firmware Version)
+        if [ -f "${root_mnt}/usr/lib/os-release" ]; then
+            local orig_build_id orig_build_date
+            orig_build_id=$(grep "^BUILD_ID=" "${root_mnt}/usr/lib/os-release" | cut -d'"' -f2)
+            orig_build_date=$(grep "^OPENWRT_BUILD_DATE=" "${root_mnt}/usr/lib/os-release" | cut -d'"' -f2)
+            cat > "${root_mnt}/usr/lib/os-release" <<EOF
+NAME="TIrtayana"
+VERSION="${orig_ver:-24.10}${profile_tag}"
+ID="tirtayana"
+ID_LIKE="lede openwrt"
+PRETTY_NAME="TIrtayana ${orig_ver:-24.10}${profile_tag}"
+VERSION_ID="${orig_ver:-24.10}"
+HOME_URL="https://github.com/Krisnarhesa/openwrt-TIrtayana"
+BUG_URL="https://github.com/Krisnarhesa/openwrt-TIrtayana/issues"
+SUPPORT_URL="https://github.com/Krisnarhesa/openwrt-TIrtayana"
+BUILD_ID="${orig_build_id:-custom}"
+OPENWRT_BOARD="${orig_target:-armsr/armv8}"
+OPENWRT_ARCH="${orig_arch:-aarch64_generic}"
+OPENWRT_TAINTS=""
+OPENWRT_DEVICE_MANUFACTURER="Universitas Udayana"
+OPENWRT_DEVICE_MANUFACTURER_URL="https://github.com/Krisnarhesa"
+OPENWRT_DEVICE_PRODUCT="STB B860H"
+OPENWRT_DEVICE_REVISION="S905X"
+OPENWRT_RELEASE="TIrtayana ${orig_ver:-24.10}${profile_tag} (${orig_rev:-custom})"
+OPENWRT_BUILD_DATE="${orig_build_date:-$(date +%s)}"
+EOF
+            success "Firmware branded as TIrtayana${profile_tag} (os-release overwritten → LuCI will show TIrtayana)"
         fi
 
         # 3c. Re-inject argon theme config
@@ -544,13 +662,13 @@ config internal 'themes'
 LUCI_EOF
         success "LuCI forced to base argon theme"
 
-        # 7. Re-inject amlogic_model.conf
+        # 5. Re-inject amlogic_model.conf
         if [ -f "${PROJECT_DIR}/files/etc/amlogic_model.conf" ]; then
             cp -f "${PROJECT_DIR}/files/etc/amlogic_model.conf" "${root_mnt}/etc/amlogic_model.conf"
             success "amlogic_model.conf re-injected"
         fi
 
-        # 7. Fix extlinux.conf.bak → extlinux.conf
+        # 6. Fix extlinux.conf.bak → extlinux.conf
         if [ -f "${boot_mnt}/extlinux/extlinux.conf.bak" ] && [ ! -f "${boot_mnt}/extlinux/extlinux.conf" ]; then
             mv "${boot_mnt}/extlinux/extlinux.conf.bak" "${boot_mnt}/extlinux/extlinux.conf"
             success "Renamed extlinux.conf.bak → extlinux.conf"
@@ -559,7 +677,7 @@ LUCI_EOF
             success "Copied extlinux.conf.bak → extlinux.conf (kept backup)"
         fi
 
-        # 8. Create u-boot.ext from u-boot-s905x-s912.bin
+        # 7. Create u-boot.ext from u-boot-s905x-s912.bin
         if [ -f "${boot_mnt}/u-boot-s905x-s912.bin" ]; then
             cp -f "${boot_mnt}/u-boot-s905x-s912.bin" "${boot_mnt}/u-boot.ext"
             chmod +x "${boot_mnt}/u-boot.ext"
@@ -570,7 +688,7 @@ LUCI_EOF
             success "u-boot.ext already present"
         fi
 
-        # 9. Verify boot config has correct DTB
+        # 8. Verify boot config has correct DTB
         if [ -f "${boot_mnt}/uEnv.txt" ]; then
             info "uEnv.txt FDT: $(grep 'FDT\|dtb' "${boot_mnt}/uEnv.txt" 2>/dev/null)"
         fi
@@ -667,7 +785,7 @@ print_install_guide() {
 main() {
     print_banner
     check_root "$@"
-    check_deps
+    check_system
     rebuild_openwrt
     find_rootfs
     setup_ophub
