@@ -1,6 +1,9 @@
 # =====================================================
 # TIrtayana OpenWrt — Minimal Edition (.config.minimal)
-# Table 3.6: Base system + Network only (NO LuCI)
+# Base system + Network only (NO LuCI)
+# Note: kmod-* packages are omitted because ophub
+#       replaces ALL kernel modules with custom kernel.
+#       Only userspace packages matter in final image.
 # =====================================================
 
 # ── Base System ──────────────────────────────────────
@@ -52,43 +55,7 @@ CONFIG_PACKAGE_ppp-mod-pppoe=y
 CONFIG_PACKAGE_dropbear=y
 CONFIG_PACKAGE_uclient-fetch=y
 
-# ── Kernel Modules (required for armsr/armv8) ────────
-CONFIG_PACKAGE_kmod-nf-conntrack=y
-CONFIG_PACKAGE_kmod-nf-conntrack6=y
-CONFIG_PACKAGE_kmod-nf-flow=y
-CONFIG_PACKAGE_kmod-nf-log=y
-CONFIG_PACKAGE_kmod-nf-log6=y
-CONFIG_PACKAGE_kmod-nf-nat=y
-CONFIG_PACKAGE_kmod-nf-reject=y
-CONFIG_PACKAGE_kmod-nf-reject6=y
-CONFIG_PACKAGE_kmod-nfnetlink=y
-CONFIG_PACKAGE_kmod-nft-core=y
-CONFIG_PACKAGE_kmod-nft-fib=y
-CONFIG_PACKAGE_kmod-nft-nat=y
-CONFIG_PACKAGE_kmod-nft-offload=y
-CONFIG_PACKAGE_kmod-ppp=y
-CONFIG_PACKAGE_kmod-pppoe=y
-CONFIG_PACKAGE_kmod-pppox=y
-CONFIG_PACKAGE_kmod-slhc=y
-CONFIG_PACKAGE_kmod-crypto-aead=y
-CONFIG_PACKAGE_kmod-crypto-hash=y
-CONFIG_PACKAGE_kmod-crypto-hmac=y
-CONFIG_PACKAGE_kmod-crypto-manager=y
-CONFIG_PACKAGE_kmod-crypto-null=y
-CONFIG_PACKAGE_kmod-lib-crc-ccitt=y
-CONFIG_PACKAGE_kmod-lib-crc32c=y
-
-# ── Network Drivers (armsr/armv8 generic) ────────────
-CONFIG_PACKAGE_kmod-libphy=y
-CONFIG_PACKAGE_kmod-mii=y
-CONFIG_PACKAGE_kmod-e1000e=y
-CONFIG_PACKAGE_kmod-stmmac-core=y
-CONFIG_PACKAGE_kmod-fixed-phy=y
-CONFIG_PACKAGE_kmod-of-mdio=y
-CONFIG_PACKAGE_kmod-phylink=y
-CONFIG_PACKAGE_kmod-mdio-devres=y
-
-# ── Libraries (minimal deps) ────────────────────────
+# ── Libraries ────────────────────────────────────────
 CONFIG_PACKAGE_libmnl=y
 CONFIG_PACKAGE_libnftnl=y
 CONFIG_PACKAGE_libnl-tiny=y
@@ -97,6 +64,14 @@ CONFIG_PACKAGE_libustream-mbedtls=y
 CONFIG_PACKAGE_libuclient=y
 CONFIG_PACKAGE_libudebug=y
 CONFIG_PACKAGE_jansson=y
+CONFIG_PACKAGE_zlib=y
+
+# ── Ophub Runtime Dependencies ──────────────────────
+# Ophub injects scripts (30-sysinfo.sh, cpustat) that
+# require bash and perl. Without these → errors on login.
+CONFIG_PACKAGE_bash=y
+CONFIG_PACKAGE_perl=y
+CONFIG_PACKAGE_perlbase-file=y
 
 # ── Disk/Filesystem (required for amlogic eMMC) ─────
 CONFIG_PACKAGE_blockd=y
@@ -116,22 +91,15 @@ CONFIG_PACKAGE_libext2fs=y
 CONFIG_PACKAGE_libss=y
 CONFIG_PACKAGE_libf2fs=y
 CONFIG_PACKAGE_mkf2fs=y
-CONFIG_PACKAGE_kmod-fs-ext4=y
-CONFIG_PACKAGE_kmod-fs-vfat=y
-CONFIG_PACKAGE_kmod-nls-base=y
-CONFIG_PACKAGE_kmod-nls-cp437=y
-CONFIG_PACKAGE_kmod-nls-iso8859-1=y
-CONFIG_PACKAGE_kmod-nls-utf8=y
-CONFIG_PACKAGE_kmod-scsi-core=y
 
 # ── Boot (armsr/armv8) ──────────────────────────────
 CONFIG_PACKAGE_grub2-efi-arm=y
 CONFIG_PACKAGE_u-boot-qemu_armv8=y
 
 # ── TIrtayana Firmware Branding ──
-CONFIG_VERSION_DIST="TIrtayana"
+CONFIG_VERSION_DIST="TIrtayana-Minimal"
 CONFIG_VERSION_NUMBER="24.10"
-CONFIG_VERSION_CODE="Tirtayana"
+CONFIG_VERSION_CODE=""
 CONFIG_VERSION_REPO="https://github.com/Krisnarhesa/openwrt-TIrtayana"
 CONFIG_VERSION_MANUFACTURER="Universitas Udayana"
 CONFIG_VERSION_MANUFACTURER_URL="https://github.com/Krisnarhesa"
